@@ -16,8 +16,9 @@ model User {
   status       String     @default("ACTIVE")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  loans        Loan[]
-  logs         AuditLog[]
+  loans           Loan[]
+  logs            AuditLog[]
+  blockedReaders  Reader[]        @relation("BlockedReaders")
 }
 
 model Reader {
@@ -34,6 +35,11 @@ model Reader {
   city         String?
   state        String?
   status       String         @default("ACTIVE")
+  blockReason  String?
+  blockCategory String?
+  blockedAt    DateTime?
+  blockedBy    Int?
+  blockedByUser User?         @relation("BlockedReaders", fields: [blockedBy], references: [id])
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   loans        Loan[]
