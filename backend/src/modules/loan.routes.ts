@@ -257,6 +257,35 @@ loanRouter.post(
       });
     }
 
+    const overdueCount = await prisma.loan.count({
+      where: { readerId: loan.readerId, status: 'OVERDUE' },
+    });
+    if (overdueCount >= 2) {
+      const reader = await prisma.reader.findUnique({ where: { id: loan.readerId } });
+      if (reader && reader.status === 'ACTIVE') {
+        await prisma.reader.update({
+          where: { id: loan.readerId },
+          data: {
+            status: 'BLOCKED',
+            blockCategory: 'ATRASO_REPETIDO',
+            blockReason: 'Bloqueado automaticamente por atrasos repetidos',
+            blockedAt: new Date(),
+            blockedBy: null,
+          },
+        });
+        await prisma.reservation.updateMany({
+          where: { readerId: loan.readerId, status: 'PENDING' },
+          data: { status: 'CANCELLED' },
+        });
+        await writeAudit(null, 'READER_STATUS_CHANGED', 'Reader', loan.readerId, {
+          status: 'BLOCKED',
+          reason: 'Bloqueado automaticamente por atrasos repetidos',
+          category: 'ATRASO_REPETIDO',
+          auto: true,
+        }, req.ip);
+      }
+    }
+
     await writeAudit(req.user?.id, 'LOAN_RETURNED', 'Loan', id, { number: loan.number }, req.ip);
     res.json({ ...returned, number: loan.number });
   }),
