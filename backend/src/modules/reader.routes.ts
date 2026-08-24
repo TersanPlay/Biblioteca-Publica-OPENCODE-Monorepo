@@ -4,7 +4,7 @@ import { HttpError } from '../lib/http-error';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth } from '../middleware/auth';
 import { writeAudit } from '../lib/audit';
-import { cleanNull, dateOrNull, parse, readerQuerySchema, readerSchema, readerStatusSchema, readerUpdateSchema } from '../validation';
+import { cleanNull, dateOrNull, parse, paginationSchema, readerQuerySchema, readerSchema, readerStatusSchema, readerUpdateSchema } from '../validation';
 import { refreshOverdue } from '../lib/overdue';
 
 export const readerRouter = Router();
@@ -79,6 +79,57 @@ readerRouter.post(
     });
     await writeAudit(req.user?.id, 'READER_CREATED', 'Reader', reader.id, { name: reader.name }, req.ip);
     res.status(201).json(reader);
+  }),
+);
+
+readerRouter.get(
+  '/blocked',
+  asyncHandler(async (req, res) => {
+    const q = parse(paginationSchema, req.query);
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const where = {
+      status: 'BLOCKED' as const,
+      ...(search
+        ? { OR: [{ name: { contains: search } }, { cpf: { contains: search } }] }
+        : {}),
+    };
+    const total = await prisma.reader.count({ where });
+    const items = await prisma.reader.findMany({
+      where,
+      orderBy: { blockedAt: 'desc' },
+      skip: (q.page - 1) * q.pageSize,
+      take: q.pageSize,
+    });
+    const ids = items.map((i) => i.id);
+    const activeByReader: Record<number, number> = {};
+    if (ids.length > 0) {
+      const rows = await prisma.loan.groupBy({
+        by: ['readerId'],
+        where: { readerId: { in: ids }, status: { in: ['ACTIVE', 'OVERDUE'] } },
+        _count: { _all: true },
+      });
+      for (const row of rows) activeByReader[row.readerId] = row._count._all;
+    }
+    const blockedByNameMap: Record<number, string> = {};
+    const userIds = items.filter((i) => i.blockedBy).map((i) => i.blockedBy!);
+    if (userIds.length > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: [...new Set(userIds)] } },
+        select: { id: true, name: true },
+      });
+      for (const u of users) blockedByNameMap[u.id] = u.name;
+    }
+    res.json({
+      items: items.map((r) => ({
+        ...r,
+        activeLoans: activeByReader[r.id] ?? 0,
+        blockedByName: r.blockedBy ? blockedByNameMap[r.blockedBy] ?? null : null,
+      })),
+      total,
+      page: q.page,
+      pageSize: q.pageSize,
+      totalPages: Math.ceil(total / q.pageSize),
+    });
   }),
 );
 
