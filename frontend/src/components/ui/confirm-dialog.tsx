@@ -1,5 +1,5 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogHeader } from './dialog';
 
@@ -13,6 +13,7 @@ export function ConfirmDialog({
   destructive,
   loading,
   onConfirm,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   destructive?: boolean;
   loading?: boolean;
   onConfirm: () => void | Promise<void>;
+  children?: ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
   const isBusy = busy || loading;
@@ -30,6 +32,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader title={title} description={description} />
+        {children}
         <div className="flex items-center justify-end gap-2">
           <DialogPrimitive.Close asChild>
             <Button variant="secondary" disabled={isBusy}>
