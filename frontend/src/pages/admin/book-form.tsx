@@ -1,6 +1,6 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Check, Save, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -106,6 +106,8 @@ interface TagInputFieldProps {
 function TagInputField({ label, helpText, placeholder, options, value, onChange, error }: TagInputFieldProps) {
   const [input, setInput] = useState('');
   const [open, setOpen] = useState(false);
+  const inputRef = useRef('');
+  inputRef.current = input;
 
   const selectedIds = useMemo(
     () => new Set(value.filter((v) => v.id != null).map((v) => v.id)),
@@ -162,7 +164,12 @@ function TagInputField({ label, helpText, placeholder, options, value, onChange,
             }
           }}
           onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onBlur={() =>
+            setTimeout(() => {
+              if (inputRef.current.trim()) addNames(inputRef.current);
+              setOpen(false);
+            }, 150)
+          }
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();

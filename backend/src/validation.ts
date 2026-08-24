@@ -128,7 +128,7 @@ export const bookSchema = z.object({
   cdd: strOpt,
   cutter: strOpt,
   physicalLocation: strOpt,
-  availableCopies: intOpt,
+  availableCopies: intOpt.refine((v) => v == null || v >= 0, 'deve ser maior ou igual a zero'),
   acquisitionType: z.enum([
     'COMPRA', 'DOACAO', 'REPOSICAO', 'PRODUCAO_INTERNA',
     'TROCA', 'EMPRESTIMO_BIBLIOTECAS', 'LICITACAO', 'PERMUTA', 'CONVENIO',
