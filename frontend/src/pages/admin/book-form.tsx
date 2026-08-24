@@ -8,18 +8,49 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { FieldError, Label } from '../../components/ui/form-field';
 import { Input } from '../../components/ui/input';
+import { NativeSelect } from '../../components/ui/select';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Textarea } from '../../components/ui/textarea';
-import { authorsApi, booksApi, categoriesApi } from '../../features/api';
+import { authorsApi, booksApi, categoriesApi, knowledgeAreasApi, subjectsApi } from '../../features/api';
 import { useToast } from '../../features/toast/toast-provider';
 import { apiErrorMessage } from '../../lib/errors';
 import { isValidIsbn10, isValidIsbn13 } from '../../lib/isbn';
-import type { Author, Book, BookFormValues, BookRef, Category } from '../../types/api';
+import type {
+  Author,
+  Book,
+  BookFormValues,
+  BookRef,
+  Category,
+  KnowledgeArea,
+  Subject,
+} from '../../types/api';
 
 const DUPLICATE_MESSAGE: Record<'isbn10' | 'isbn13', string> = {
   isbn10: 'Já existe um livro cadastrado com este ISBN-10.',
   isbn13: 'Já existe um livro cadastrado com este ISBN-13.',
 };
+
+const FORMAT_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'CAPA', label: 'Capa' },
+  { value: 'BROCHURA', label: 'Brochura' },
+  { value: 'ESPIRAL', label: 'Espiral' },
+];
+
+const ACQUISITION_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'COMPRA', label: 'Compra' },
+  { value: 'DOACAO', label: 'Doação' },
+  { value: 'REPOSICAO', label: 'Reposição' },
+  { value: 'PRODUCAO_INTERNA', label: 'Produção Interna' },
+  { value: 'TROCA', label: 'Troca' },
+  { value: 'EMPRESTIMO_BIBLIOTECAS', label: 'Empréstimo entre Bibliotecas' },
+  { value: 'LICITACAO', label: 'Licitação' },
+  { value: 'PERMUTA', label: 'Permuta' },
+  { value: 'CONVENIO', label: 'Convênio' },
+];
+
+const tagValue = z.object({ id: z.number().nullable(), name: z.string().trim().min(1) });
 
 const schema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -33,11 +64,178 @@ const schema = z.object({
   language: z.string(),
   pages: z.string(),
   coverUrl: z.string(),
-  categories: z.array(z.object({ id: z.number().nullable(), name: z.string().trim().min(1) })),
-  authors: z
-    .array(z.object({ id: z.number().nullable(), name: z.string().trim().min(1) }))
-    .min(1, 'Informe ao menos um autor'),
+  format: z.enum(['', 'CAPA', 'BROCHURA', 'ESPIRAL']),
+  volume: z.string(),
+  cdd: z.string(),
+  cutter: z.string(),
+  physicalLocation: z.string(),
+  availableCopies: z.string(),
+  acquisitionType: z.enum([
+    '',
+    'COMPRA',
+    'DOACAO',
+    'REPOSICAO',
+    'PRODUCAO_INTERNA',
+    'TROCA',
+    'EMPRESTIMO_BIBLIOTECAS',
+    'LICITACAO',
+    'PERMUTA',
+    'CONVENIO',
+  ]),
+  categories: z.array(tagValue),
+  authors: z.array(tagValue).min(1, 'Informe ao menos um autor'),
+  subjects: z.array(tagValue),
+  knowledgeAreas: z.array(tagValue),
 });
+
+interface TagOption {
+  id: number;
+  name: string;
+}
+
+interface TagInputFieldProps {
+  label: string;
+  helpText?: string;
+  placeholder: string;
+  options: TagOption[];
+  value: { id: number | null; name: string }[];
+  onChange: (next: { id: number | null; name: string }[]) => void;
+  error?: string;
+}
+
+function TagInputField({ label, helpText, placeholder, options, value, onChange, error }: TagInputFieldProps) {
+  const [input, setInput] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const selectedIds = useMemo(
+    () => new Set(value.filter((v) => v.id != null).map((v) => v.id)),
+    [value],
+  );
+  const suggestions = useMemo(() => {
+    const q = input.trim().toLowerCase();
+    if (!q) return [];
+    const rank = (o: TagOption) =>
+      o.name.toLowerCase() === q ? 0 : o.name.toLowerCase().startsWith(q) ? 1 : 2;
+    return options
+      .filter((o) => !selectedIds.has(o.id))
+      .filter((o) => !value.some((v) => v.name.toLowerCase() === o.name.toLowerCase()))
+      .filter((o) => o.name.toLowerCase().includes(q))
+      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
+      .slice(0, 6);
+  }, [options, input, selectedIds, value]);
+
+  const addNames = (raw: string) => {
+    const parts = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) {
+      setOpen(false);
+      return;
+    }
+    const next = [...value];
+    for (const part of parts) {
+      if (next.some((v) => v.name.toLowerCase() === part.toLowerCase())) continue;
+      const matched = options.find((o) => o.name.toLowerCase() === part.toLowerCase());
+      next.push(matched ? { id: matched.id, name: matched.name } : { id: null as number | null, name: part });
+    }
+    onChange(next);
+    setInput('');
+    setOpen(false);
+  };
+
+  const removeAt = (index: number) => onChange(value.filter((_, i) => i !== index));
+
+  return (
+    <div>
+      <Label>{label}</Label>
+      {helpText && <p className="mb-3 text-[12.5px] text-muted">{helpText}</p>}
+      <div className="relative">
+        <Input
+          value={input}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v.endsWith(',') || (v.includes(',') && v.trim().length > 1)) addNames(v);
+            else {
+              setInput(v);
+              setOpen(true);
+            }
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (suggestions.length > 0 && !input.includes(',')) addNames(suggestions[0].name);
+              else addNames(input);
+            } else if (e.key === 'Escape') {
+              setOpen(false);
+            }
+          }}
+          placeholder={placeholder}
+        />
+        {open && suggestions.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-card hairline">
+            {suggestions.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addNames(o.name);
+                }}
+                className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13.5px] font-semibold text-ink transition-colors duration-150 hover:bg-surfaceWarm"
+              >
+                <Check className="size-3.5 text-primary" />
+                {o.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {value.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {value.map((v, i) => (
+            <span
+              key={`${v.name}-${i}`}
+              className={`inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3.5 pr-1.5 text-[13px] font-semibold transition-all duration-200 [transition-timing-function:var(--ease)] ${
+                v.id == null
+                  ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-300'
+                  : 'bg-primary text-white shadow-card'
+              }`}
+            >
+              {v.name}
+              {v.id == null && (
+                <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-700">
+                  novo
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                aria-label={`Remover ${v.name}`}
+                className={`rounded-full p-1 transition-colors duration-150 ${
+                  v.id == null ? 'hover:bg-amber-100' : 'hover:bg-primary-dark'
+                }`}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {error && <FieldError message={error} />}
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <h2 className="mb-4 border-b border-black/5 pb-2 text-[15px] font-extrabold uppercase tracking-wide text-muted">
+      {children}
+    </h2>
+  );
+}
 
 export function BookFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +246,8 @@ export function BookFormPage() {
   const [book, setBook] = useState<Book | null>(null);
   const [authors, setAuthors] = useState<Author[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [knowledgeAreas, setKnowledgeAreas] = useState<KnowledgeArea[]>([]);
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [coverState, setCoverState] = useState<'idle' | 'searching' | 'notfound'>('idle');
@@ -58,15 +258,19 @@ export function BookFormPage() {
     defaultValues: {
       title: '', subtitle: '', isbn10: '', isbn13: '', description: '', publisher: '',
       edition: '', publicationYear: '', language: 'Português', pages: '', coverUrl: '',
-      categories: [], authors: [],
+      format: '', volume: '', cdd: '', cutter: '', physicalLocation: '',
+      availableCopies: '', acquisitionType: '',
+      categories: [], authors: [], subjects: [], knowledgeAreas: [],
     },
   });
 
   useEffect(() => {
-    Promise.all([authorsApi.all(), categoriesApi.all()])
-      .then(([a, c]) => {
+    Promise.all([authorsApi.all(), categoriesApi.all(), subjectsApi.all(), knowledgeAreasApi.all()])
+      .then(([a, c, s, k]) => {
         setAuthors(a);
         setCategories(c);
+        setSubjects(s);
+        setKnowledgeAreas(k);
       })
       .catch(() => undefined);
   }, []);
@@ -89,8 +293,17 @@ export function BookFormPage() {
           language: b.language ?? 'Português',
           pages: b.pages ? String(b.pages) : '',
           coverUrl: b.coverUrl ?? '',
+          format: b.format ?? '',
+          volume: b.volume ?? '',
+          cdd: b.cdd ?? '',
+          cutter: b.cutter ?? '',
+          physicalLocation: b.physicalLocation ?? '',
+          availableCopies: b.availableCopies != null ? String(b.availableCopies) : '',
+          acquisitionType: b.acquisitionType ?? '',
           categories: b.categories.map((c) => ({ id: c.id, name: c.name })),
           authors: b.authors.map((a) => ({ id: a.author.id, name: a.author.name })),
+          subjects: b.subjects.map((s) => ({ id: s.id, name: s.name })),
+          knowledgeAreas: b.knowledgeAreas.map((k) => ({ id: k.id, name: k.name })),
         });
       })
       .catch((err) => {
@@ -101,96 +314,9 @@ export function BookFormPage() {
   }, [id, isEdit, reset, navigate, toast]);
 
   const authorsField = watch('authors');
-  const [authorInput, setAuthorInput] = useState('');
-  const [authorOpen, setAuthorOpen] = useState(false);
   const categoriesField = watch('categories');
-  const [categoryInput, setCategoryInput] = useState('');
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const selectedCategoryIds = useMemo(
-    () => new Set(categoriesField.filter((c) => c.id != null).map((c) => c.id)),
-    [categoriesField],
-  );
-  const categorySuggestions = useMemo(() => {
-    const q = categoryInput.trim().toLowerCase();
-    if (!q) return [];
-    const rank = (c: Category) =>
-      c.name.toLowerCase() === q ? 0 : c.name.toLowerCase().startsWith(q) ? 1 : 2;
-    return categories
-      .filter((c) => !selectedCategoryIds.has(c.id))
-      .filter((c) => !categoriesField.some((s) => s.name.toLowerCase() === c.name.toLowerCase()))
-      .filter((c) => c.name.toLowerCase().includes(q))
-      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
-      .slice(0, 6);
-  }, [categories, categoryInput, selectedCategoryIds, categoriesField]);
-
-  const addCategoryNames = (raw: string) => {
-    const parts = raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length === 0) {
-      setCategoryOpen(false);
-      return;
-    }
-    const next = [...categoriesField];
-    for (const part of parts) {
-      if (next.some((c) => c.name.toLowerCase() === part.toLowerCase())) continue;
-      const matched = categories.find((c) => c.name.toLowerCase() === part.toLowerCase());
-      next.push(matched ? { id: matched.id, name: matched.name } : { id: null as number | null, name: part });
-    }
-    setValue('categories', next);
-    setCategoryInput('');
-    setCategoryOpen(false);
-  };
-
-  const removeCategory = (index: number) => {
-    setValue(
-      'categories',
-      categoriesField.filter((_, i) => i !== index),
-    );
-  };
-  const selectedAuthorIds = useMemo(
-    () => new Set(authorsField.filter((a) => a.id != null).map((a) => a.id)),
-    [authorsField],
-  );
-  const suggestions = useMemo(() => {
-    const q = authorInput.trim().toLowerCase();
-    if (!q) return [];
-    const rank = (a: Author) =>
-      a.name.toLowerCase() === q ? 0 : a.name.toLowerCase().startsWith(q) ? 1 : 2;
-    return authors
-      .filter((a) => !selectedAuthorIds.has(a.id))
-      .filter((a) => a.name.toLowerCase().includes(q))
-      .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
-      .slice(0, 6);
-  }, [authors, authorInput, selectedAuthorIds]);
-
-  const addAuthorNames = (raw: string) => {
-    const parts = raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length === 0) {
-      setAuthorOpen(false);
-      return;
-    }
-    const next = [...authorsField];
-    for (const part of parts) {
-      if (next.some((a) => a.name.toLowerCase() === part.toLowerCase())) continue;
-      const matched = authors.find((a) => a.name.toLowerCase() === part.toLowerCase());
-      next.push(matched ? { id: matched.id, name: matched.name } : { id: null as number | null, name: part });
-    }
-    setValue('authors', next);
-    setAuthorInput('');
-    setAuthorOpen(false);
-  };
-
-  const removeAuthor = (index: number) => {
-    setValue(
-      'authors',
-      authorsField.filter((_, i) => i !== index),
-    );
-  };
+  const subjectsField = watch('subjects');
+  const knowledgeAreasField = watch('knowledgeAreas');
 
   const isbn10 = watch('isbn10');
   const isbn13 = watch('isbn13');
@@ -338,17 +464,10 @@ export function BookFormPage() {
         </Button>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (authorInput.trim()) addAuthorNames(authorInput);
-          if (categoryInput.trim()) addCategoryNames(categoryInput);
-          void handleSubmit(submit)(e);
-        }}
-        className="space-y-5"
-      >
+      <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(submit)(e); }} className="space-y-5">
         <Card>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SectionTitle>Identificação</SectionTitle>
             <div className="sm:col-span-2">
               <Label htmlFor="title">Título *</Label>
               <Input id="title" placeholder="Dom Casmurro" error={errors.title?.message} {...register('title')} />
@@ -388,31 +507,111 @@ export function BookFormPage() {
                 </Link>
               </div>
             )}
-            <div className="sm:col-span-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea id="description" rows={4} placeholder="Sinopse do livro..." {...register('description')} />
-            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SectionTitle>Publicação</SectionTitle>
             <div>
               <Label htmlFor="publisher">Editora</Label>
               <Input id="publisher" placeholder="Companhia das Letras" {...register('publisher')} />
-            </div>
-            <div>
-              <Label htmlFor="language">Idioma</Label>
-              <Input id="language" placeholder="Português" {...register('language')} />
-            </div>
-            <div>
-              <Label htmlFor="edition">Edição</Label>
-              <Input id="edition" type="number" min={1} placeholder="1" {...register('edition')} />
             </div>
             <div>
               <Label htmlFor="publicationYear">Ano de publicação</Label>
               <Input id="publicationYear" type="number" min={1000} max={2100} placeholder="1899" {...register('publicationYear')} />
             </div>
             <div>
+              <Label htmlFor="edition">Edição</Label>
+              <Input id="edition" type="number" min={1} placeholder="1" {...register('edition')} />
+            </div>
+            <div>
+              <Label htmlFor="volume">Volume</Label>
+              <Input id="volume" placeholder="Vol. 1" {...register('volume')} />
+            </div>
+            <div>
+              <Label htmlFor="language">Idioma</Label>
+              <Input id="language" placeholder="Português" {...register('language')} />
+            </div>
+            <div>
               <Label htmlFor="pages">Páginas</Label>
               <Input id="pages" type="number" min={1} placeholder="256" {...register('pages')} />
             </div>
             <div>
+              <Label htmlFor="format">Formato físico</Label>
+              <NativeSelect
+                value={watch('format')}
+                onChange={(v) => setValue('format', v)}
+                options={FORMAT_OPTIONS}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SectionTitle>Catalogação</SectionTitle>
+            <div>
+              <Label htmlFor="cdd">CDD</Label>
+              <Input id="cdd" placeholder="869.3" {...register('cdd')} />
+            </div>
+            <div>
+              <Label htmlFor="cutter">Cutter</Label>
+              <Input id="cutter" placeholder="M338d" {...register('cutter')} />
+            </div>
+            <div className="sm:col-span-2">
+              <TagInputField
+                label="Assuntos"
+                helpText="Digite os assuntos separados por vírgulas (ex.: romance, literatura brasileira). Assuntos ainda não cadastrados são criados ao salvar."
+                placeholder="Nome do assunto..."
+                options={subjects}
+                value={subjectsField}
+                onChange={(next) => setValue('subjects', next)}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <TagInputField
+                label="Área de Conhecimento"
+                helpText="Digite as áreas separadas por vírgulas (ex.: Ciências Humanas, Exatas). Áreas ainda não cadastradas são criadas ao salvar."
+                placeholder="Nome da área..."
+                options={knowledgeAreas}
+                value={knowledgeAreasField}
+                onChange={(next) => setValue('knowledgeAreas', next)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SectionTitle>Acervo e Localização</SectionTitle>
+            <div>
+              <Label htmlFor="availableCopies">Cópias disponíveis</Label>
+              <Input id="availableCopies" type="number" min={0} placeholder="1" {...register('availableCopies')} />
+            </div>
+            <div>
+              <Label htmlFor="physicalLocation">Localização física</Label>
+              <Input id="physicalLocation" placeholder="Prateleira B3, Corredor 2" {...register('physicalLocation')} />
+            </div>
+            <div>
+              <Label htmlFor="acquisitionType">Tipo de aquisição</Label>
+              <NativeSelect
+                value={watch('acquisitionType')}
+                onChange={(v) => setValue('acquisitionType', v)}
+                options={ACQUISITION_OPTIONS}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SectionTitle>Descrição e Capa</SectionTitle>
+            <div className="sm:col-span-2">
+              <Label htmlFor="description">Descrição</Label>
+              <Textarea id="description" rows={4} placeholder="Sinopse do livro..." {...register('description')} />
+            </div>
+            <div className="sm:col-span-2">
               <Label htmlFor="coverUrl">URL da capa</Label>
               <Input id="coverUrl" placeholder="https://covers.openlibrary.org/..." {...register('coverUrl')} />
               {coverState === 'searching' && (
@@ -428,164 +627,25 @@ export function BookFormPage() {
         </Card>
 
         <Card>
-          <CardContent>
-            <Label>Categorias</Label>
-            <p className="mb-3 text-[12.5px] text-muted">
-              Digite as categorias separadas por vírgulas (ex.: viagem, advocacia, ação). Categorias ainda
-              não cadastradas são criadas ao salvar.
-            </p>
-            <div className="relative">
-              <Input
-                value={categoryInput}
-                onChange={(e) => {
-                  setCategoryInput(e.target.value);
-                  setCategoryOpen(true);
-                }}
-                onFocus={() => setCategoryOpen(true)}
-                onBlur={() => setTimeout(() => setCategoryOpen(false), 150)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (categorySuggestions.length > 0 && !categoryInput.includes(',')) addCategoryNames(categorySuggestions[0].name);
-                    else addCategoryNames(categoryInput);
-                  } else if (e.key === 'Escape') {
-                    setCategoryOpen(false);
-                  }
-                }}
-                placeholder="Nome da categoria..."
-              />
-              {categoryOpen && categorySuggestions.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-card hairline">
-                  {categorySuggestions.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        addCategoryNames(c.name);
-                      }}
-                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13.5px] font-semibold text-ink transition-colors duration-150 hover:bg-surfaceWarm"
-                    >
-                      <Check className="size-3.5 text-primary" />
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {categoriesField.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {categoriesField.map((c, i) => (
-                  <span
-                    key={`${c.name}-${i}`}
-                    className={`inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3.5 pr-1.5 text-[13px] font-semibold transition-all duration-200 [transition-timing-function:var(--ease)] ${
-                      c.id == null
-                        ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-300'
-                        : 'bg-primary text-white shadow-card'
-                    }`}
-                  >
-                    {c.name}
-                    {c.id == null && (
-                      <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-700">
-                        novo
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeCategory(i)}
-                      aria-label={`Remover categoria ${c.name}`}
-                      className={`rounded-full p-1 transition-colors duration-150 ${
-                        c.id == null ? 'hover:bg-amber-100' : 'hover:bg-primary-dark'
-                      }`}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Label>Autores</Label>
-            <p className="mb-3 text-[12.5px] text-muted">
-              Digite os autores separados por vírgulas (ex.: Shawn Peters, Vibrant Publishers). Nomes ainda não
-              cadastrados são criados ao salvar.
-            </p>
-            <div className="relative">
-              <Input
-                value={authorInput}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v.endsWith(',') || (v.includes(',') && v.trim().length > 1)) addAuthorNames(v);
-                  else { setAuthorInput(v); setAuthorOpen(true); }
-                }}
-                onFocus={() => setAuthorOpen(true)}
-                onBlur={() => setTimeout(() => setAuthorOpen(false), 150)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (suggestions.length > 0 && !authorInput.includes(',')) addAuthorNames(suggestions[0].name);
-                    else addAuthorNames(authorInput);
-                  } else if (e.key === 'Escape') {
-                    setAuthorOpen(false);
-                  }
-                }}
-                placeholder="Nome do autor..."
-              />
-              {authorOpen && suggestions.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-card hairline">
-                  {suggestions.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        addAuthorNames(a.name);
-                      }}
-                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13.5px] font-semibold text-ink transition-colors duration-150 hover:bg-surfaceWarm"
-                    >
-                      <Check className="size-3.5 text-primary" />
-                      {a.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {authorsField.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {authorsField.map((a, i) => (
-                  <span
-                    key={`${a.name}-${i}`}
-                    className={`inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3.5 pr-1.5 text-[13px] font-semibold transition-all duration-200 [transition-timing-function:var(--ease)] ${
-                      a.id == null
-                        ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-300'
-                        : 'bg-primary text-white shadow-card'
-                    }`}
-                  >
-                    {a.name}
-                    {a.id == null && (
-                      <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-700">
-                        novo
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeAuthor(i)}
-                      aria-label={`Remover autor ${a.name}`}
-                      className={`rounded-full p-1 transition-colors duration-150 ${
-                        a.id == null ? 'hover:bg-amber-100' : 'hover:bg-primary-dark'
-                      }`}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            {errors.authors && <FieldError message={errors.authors.message ?? 'Informe ao menos um autor'} />}
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SectionTitle>Vínculos</SectionTitle>
+            <TagInputField
+              label="Autores *"
+              helpText="Digite os autores separados por vírgulas. Nomes ainda não cadastrados são criados ao salvar."
+              placeholder="Nome do autor..."
+              options={authors}
+              value={authorsField}
+              onChange={(next) => setValue('authors', next)}
+              error={errors.authors?.message ?? undefined}
+            />
+            <TagInputField
+              label="Categorias"
+              helpText="Digite as categorias separadas por vírgulas. Categorias ainda não cadastradas são criadas ao salvar."
+              placeholder="Nome da categoria..."
+              options={categories}
+              value={categoriesField}
+              onChange={(next) => setValue('categories', next)}
+            />
           </CardContent>
         </Card>
 
