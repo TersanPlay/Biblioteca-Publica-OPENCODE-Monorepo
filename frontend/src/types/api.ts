@@ -49,6 +49,29 @@ export interface Category {
   _count?: { books: number };
 }
 
+export type BookFormat = 'CAPA' | 'BROCHURA' | 'ESPIRAL';
+
+export type AcquisitionType =
+  | 'COMPRA'
+  | 'DOACAO'
+  | 'REPOSICAO'
+  | 'PRODUCAO_INTERNA'
+  | 'TROCA'
+  | 'EMPRESTIMO_BIBLIOTECAS'
+  | 'LICITACAO'
+  | 'PERMUTA'
+  | 'CONVENIO';
+
+export interface Subject {
+  id: number;
+  name: string;
+}
+
+export interface KnowledgeArea {
+  id: number;
+  name: string;
+}
+
 export interface Book {
   id: number;
   isbn10: string | null;
@@ -62,9 +85,18 @@ export interface Book {
   language: string | null;
   pages: number | null;
   coverUrl: string | null;
+  format: BookFormat | null;
+  volume: string | null;
+  cdd: string | null;
+  cutter: string | null;
+  physicalLocation: string | null;
+  availableCopies: number | null;
+  acquisitionType: AcquisitionType | null;
   isArchived: boolean;
   categories: Category[];
   authors: { author: Author }[];
+  subjects: Subject[];
+  knowledgeAreas: KnowledgeArea[];
   isAvailable: boolean;
   hasActiveLoan?: boolean;
   createdAt: string;
@@ -213,6 +245,15 @@ export interface BookFormValues {
   language: string;
   pages: string;
   coverUrl: string;
+  format: string;
+  volume: string;
+  cdd: string;
+  cutter: string;
+  physicalLocation: string;
+  availableCopies: string;
+  acquisitionType: string;
   categories: { id: number | null; name: string }[];
   authors: { id: number | null; name: string }[];
+  subjects: { id: number | null; name: string }[];
+  knowledgeAreas: { id: number | null; name: string }[];
 }

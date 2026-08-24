@@ -17,6 +17,8 @@ import type {
   ReportResult,
   ReportType,
   Reservation,
+  Subject,
+  KnowledgeArea,
   User,
 } from '../types/api';
 
@@ -43,10 +45,21 @@ function toBookPayload(v: BookFormValues) {
     language: v.language,
     pages: v.pages ? Number(v.pages) : undefined,
     coverUrl: v.coverUrl,
+    format: v.format || undefined,
+    volume: v.volume,
+    cdd: v.cdd,
+    cutter: v.cutter,
+    physicalLocation: v.physicalLocation,
+    availableCopies: v.availableCopies ? Number(v.availableCopies) : undefined,
+    acquisitionType: v.acquisitionType || undefined,
     categoryIds: v.categories.filter((c) => c.id != null).map((c) => c.id as number),
     categoryNames: v.categories.filter((c) => c.id == null).map((c) => c.name),
     authorIds: v.authors.filter((a) => a.id != null).map((a) => a.id as number),
     authorNames: v.authors.filter((a) => a.id == null).map((a) => a.name),
+    subjectIds: v.subjects.filter((s) => s.id != null).map((s) => s.id as number),
+    subjectNames: v.subjects.filter((s) => s.id == null).map((s) => s.name),
+    knowledgeAreaIds: v.knowledgeAreas.filter((k) => k.id != null).map((k) => k.id as number),
+    knowledgeAreaNames: v.knowledgeAreas.filter((k) => k.id == null).map((k) => k.name),
   });
 }
 
@@ -103,6 +116,14 @@ export const categoriesApi = {
     api.put<Category>(`/categories/${id}`, v).then((r) => r.data),
   deactivate: (id: number) => api.patch(`/categories/${id}/status`, { status: 'INACTIVE' }).then((r) => r.data),
   reactivate: (id: number) => api.patch(`/categories/${id}/status`, { status: 'ACTIVE' }).then((r) => r.data),
+};
+
+export const subjectsApi = {
+  all: () => api.get<Paginated<Subject>>('/subjects').then((r) => r.data.items),
+};
+
+export const knowledgeAreasApi = {
+  all: () => api.get<Paginated<KnowledgeArea>>('/knowledge-areas').then((r) => r.data.items),
 };
 
 export const readersApi = {
