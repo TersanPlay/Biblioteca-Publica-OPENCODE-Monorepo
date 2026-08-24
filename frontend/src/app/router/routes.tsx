@@ -22,6 +22,7 @@ import { UsersPage } from '../../pages/admin/users';
 import { SettingsPage } from '../../pages/admin/settings';
 import { AuditPage } from '../../pages/admin/audit';
 import { BackupsPage } from '../../pages/admin/backups';
+import { BlockListPage } from '../../pages/admin/blocklist';
 import { NotFoundPage } from '../../pages/not-found';
 
 export function AppRoutes() {
@@ -45,6 +46,7 @@ export function AppRoutes() {
           <Route path="admin/reservas" element={<ReservationsPage />} />
           <Route path="admin/leitores" element={<ReadersPage />} />
           <Route path="admin/leitores/:id" element={<ReaderDetailsPage />} />
+          <Route path="admin/blocklist" element={<BlockListPage />} />
           <Route element={<RequireAdmin />}>
             <Route path="admin/autores" element={<AuthorsPage />} />
             <Route path="admin/categorias" element={<CategoriesPage />} />

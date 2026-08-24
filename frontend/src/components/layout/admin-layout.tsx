@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  Ban,
   BarChart3,
   BookMarked,
   BookOpen,
@@ -54,6 +55,7 @@ const navSections: {
     label: 'Comunidade',
     items: [
       { to: '/admin/leitores', label: 'Leitores', icon: Users, adminOnly: false },
+      { to: '/admin/blocklist', label: 'BlockList', icon: Ban, adminOnly: false },
       { to: '/admin/relatorios', label: 'Relatórios', icon: FileText, adminOnly: true },
       { to: '/admin/usuarios', label: 'Usuários', icon: ShieldCheck, adminOnly: true },
       { to: '/admin/auditoria', label: 'Auditoria', icon: FileText, adminOnly: true },
