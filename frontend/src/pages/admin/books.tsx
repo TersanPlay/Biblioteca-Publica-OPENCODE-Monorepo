@@ -18,6 +18,12 @@ import { useToast } from '../../features/toast/toast-provider';
 import { apiErrorMessage } from '../../lib/errors';
 import type { Book, Category, Paginated } from '../../types/api';
 
+const FORMAT_LABELS: Record<string, string> = {
+  CAPA: 'Capa',
+  BROCHURA: 'Brochura',
+  ESPIRAL: 'Espiral',
+};
+
 export function BooksPage() {
   const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
@@ -142,6 +148,7 @@ export function BooksPage() {
                     <TH>Capa</TH>
                     <TH>Título</TH>
                     <TH>Categoria</TH>
+                    <TH>Formato</TH>
                     <TH className="text-center">Disponibilidade</TH>
                     <TH>Status</TH>
                     <TH className="text-right">Ações</TH>
@@ -172,6 +179,13 @@ export function BooksPage() {
                               <Badge key={c.id} variant="primary">{c.name}</Badge>
                             ))}
                           </div>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </TD>
+                      <TD>
+                        {b.format ? (
+                          <Badge variant="neutral">{FORMAT_LABELS[b.format] ?? b.format}</Badge>
                         ) : (
                           <span className="text-muted">—</span>
                         )}
