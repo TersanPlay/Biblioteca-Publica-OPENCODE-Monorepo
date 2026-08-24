@@ -123,6 +123,20 @@ export const bookSchema = z.object({
   categoryNames: z.array(z.string().trim().min(2, 'nome de categoria muito curto').max(120)).default([]),
   authorIds: z.array(z.number().int()).default([]),
   authorNames: z.array(z.string().trim().min(2, 'nome de autor muito curto').max(120)).default([]),
+  format: z.enum(['CAPA', 'BROCHURA', 'ESPIRAL']).optional(),
+  volume: strOpt,
+  cdd: strOpt,
+  cutter: strOpt,
+  physicalLocation: strOpt,
+  availableCopies: intOpt,
+  acquisitionType: z.enum([
+    'COMPRA', 'DOACAO', 'REPOSICAO', 'PRODUCAO_INTERNA',
+    'TROCA', 'EMPRESTIMO_BIBLIOTECAS', 'LICITACAO', 'PERMUTA', 'CONVENIO',
+  ]).optional(),
+  subjectNames: z.array(z.string().trim().min(2, 'nome de assunto muito curto').max(120)).default([]),
+  subjectIds: z.array(z.number().int()).default([]),
+  knowledgeAreaNames: z.array(z.string().trim().min(2, 'nome de area muito curto').max(120)).default([]),
+  knowledgeAreaIds: z.array(z.number().int()).default([]),
 });
 
 export const authorSchema = z.object({
