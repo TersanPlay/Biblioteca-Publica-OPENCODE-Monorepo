@@ -89,6 +89,13 @@ export interface Reader {
   activeLoans?: number;
 }
 
+export interface BlockedReader extends Reader {
+  blockReason: string | null;
+  blockCategory: string | null;
+  blockedAt: string | null;
+  blockedByName: string | null;
+}
+
 export interface ReaderDetail {
   reader: Reader;
   loans: Loan[];

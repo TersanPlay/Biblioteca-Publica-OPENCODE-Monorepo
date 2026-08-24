@@ -3,6 +3,7 @@ import type {
   Author,
   AuditLog,
   Backup,
+  BlockedReader,
   Book,
   BookFormValues,
   BookRef,
@@ -111,10 +112,14 @@ export const readersApi = {
     api.post<Reader>('/readers', cleanPayload(v)).then((r) => r.data),
   update: (id: number, v: Record<string, unknown>) =>
     api.put<Reader>(`/readers/${id}`, cleanPayload(v)).then((r) => r.data),
-  block: (id: number) =>
-    api.patch<Reader>(`/readers/${id}/status`, { status: 'BLOCKED' }).then((r) => r.data),
+  block: (id: number, reason?: string, category?: string) =>
+    api.patch<Reader>(`/readers/${id}/status`, { status: 'BLOCKED', reason, category }).then((r) => r.data),
   unblock: (id: number) =>
     api.patch<Reader>(`/readers/${id}/status`, { status: 'ACTIVE' }).then((r) => r.data),
+  unblockBatch: (ids: number[]) =>
+    Promise.all(ids.map((id) => api.patch(`/readers/${id}/status`, { status: 'ACTIVE' }))),
+  blocked: (params?: Params) =>
+    api.get<Paginated<BlockedReader>>('/readers/blocked', { params }).then((r) => r.data),
 };
 
 export const loansApi = {
