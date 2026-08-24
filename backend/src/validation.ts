@@ -140,6 +140,8 @@ export const categoryStatusSchema = z.object({
 
 export const readerStatusSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE', 'BLOCKED']),
+  reason: z.string().max(500).optional(),
+  category: z.enum(['ATRASO_REPETIDO', 'COMPORTAMENTO', 'SOLICITACAO', 'OUTRO']).optional(),
 });
 
 export const categorySchema = z.object({
