@@ -1,22 +1,12 @@
 import type { ReactNode } from 'react';
-import {
-  Boxes,
-  FolderTree,
-  Layers,
-  ListOrdered,
-  ShieldCheck,
-  Wrench,
-} from 'lucide-react';
+import { Boxes, FolderTree, Layers, ListOrdered } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
-import { TD, TH, TBody, THead, TR, Table } from '../../components/ui/table';
 
 const SECTIONS = [
   { id: 'visao-geral', label: 'Visão geral' },
   { id: 'stack', label: 'Stack' },
   { id: 'estrutura', label: 'Estrutura' },
   { id: 'fluxo-de-dados', label: 'Fluxo de dados' },
-  { id: 'seguranca', label: 'Segurança' },
-  { id: 'operacao', label: 'Operação' },
 ];
 
 const BACKEND_STACK = [
@@ -48,16 +38,6 @@ const FLOW_STEPS = [
   'Toda mutação registra auditoria com writeAudit().',
   'Erros conhecidos viram HttpError; o errorHandler devolve { error } com o status correto.',
   'Em 401 (fora do login), o interceptor limpa o token e encerra a sessão.',
-];
-
-const ENV_KEYS = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'JWT_EXPIRES',
-  'ADMIN_EMAIL',
-  'ADMIN_PASSWORD',
-  'CORS_ORIGIN',
-  'VITE_API_URL',
 ];
 
 function Section({
@@ -150,8 +130,8 @@ export function ArchitecturePage() {
             Arquitetura <span className="block text-primary">do projeto</span>
           </h1>
           <p className="mt-4 max-w-2xl text-[15.5px] leading-relaxed text-muted">
-            Como a biblioteca digital é construída: camadas, tecnologias, fluxo de dados,
-            segurança e operação.
+            Como a biblioteca digital é construída: camadas, tecnologias, estrutura e fluxo de
+            dados.
           </p>
         </header>
 
@@ -258,82 +238,6 @@ frontend/
                   ))}
                 </ol>
               </Card>
-            </Section>
-
-            <Section id="seguranca" icon={ShieldCheck} title="Segurança">
-              <div className="space-y-3">
-                <Card>
-                  <ul className="space-y-2 text-[13.5px] leading-relaxed text-ink">
-                    <li>• Login valida credenciais com bcrypt e emite JWT assinado com expiração padrão de 8 horas.</li>
-                    <li>• Comparação contra hash dummy quando o usuário não existe, evitando enumeração de e-mails.</li>
-                    <li>• requireAuth consulta o banco a cada requisição: usuário precisa existir e estar ACTIVE.</li>
-                    <li>• Rate limits: login 10 tentativas / 15 min · consulta de capa 30 / 15 min.</li>
-                  </ul>
-                </Card>
-                <Card>
-                  <Table>
-                    <THead>
-                      <TR>
-                        <TH>Papel</TH>
-                        <TH>Acesso</TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      <TR>
-                        <TD className="font-extrabold">ADMIN</TD>
-                        <TD>Tudo: acervo, circulação, relatórios, usuários, configurações, auditoria e backup</TD>
-                      </TR>
-                      <TR>
-                        <TD className="font-extrabold">ATTENDANT</TD>
-                        <TD>Operação do dia a dia: acervo, empréstimos, devoluções, reservas e leitores</TD>
-                      </TR>
-                    </TBody>
-                  </Table>
-                </Card>
-              </div>
-            </Section>
-
-            <Section id="operacao" icon={Wrench} title="Operação">
-              <div className="space-y-3">
-                <Card>
-                  <h3 className="mb-2 text-[13px] font-extrabold uppercase tracking-wide text-primary-dark">
-                    Backups
-                  </h3>
-                  <p className="text-[13.5px] leading-relaxed text-ink">
-                    Automáticos às 18:30 e 23:45 via node-cron usando{' '}
-                    <code className="rounded bg-surfaceWarm px-1.5 py-0.5 font-mono text-[11.5px]">VACUUM INTO</code>,
-                    com rotação dos 5 arquivos mais recentes e restauração protegida por papel ADMIN.
-                  </p>
-                </Card>
-                <Card>
-                  <h3 className="mb-2 text-[13px] font-extrabold uppercase tracking-wide text-primary-dark">
-                    Erros
-                  </h3>
-                  <p className="mb-2 text-[13.5px] leading-relaxed text-ink">
-                    Formato único{' '}
-                    <code className="rounded bg-surfaceWarm px-1.5 py-0.5 font-mono text-[11.5px]">{`{ "error": "<mensagem>" }`}</code>.
-                    Validação 400 · negócio 400/401/403/404/409 · duplicado 409 · inexistente 404 · não tratado 500.
-                  </p>
-                </Card>
-                <Card>
-                  <h3 className="mb-2 text-[13px] font-extrabold uppercase tracking-wide text-primary-dark">
-                    Ambiente
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ENV_KEYS.map((key) => (
-                      <code
-                        key={key}
-                        className="rounded-full bg-surfaceWarm px-2.5 py-1 font-mono text-[11px] font-bold text-ink"
-                      >
-                        {key}
-                      </code>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[12.5px] text-muted">
-                    Nomes das variáveis — valores definidos apenas no .env local, nunca versionados.
-                  </p>
-                </Card>
-              </div>
             </Section>
           </div>
         </div>
