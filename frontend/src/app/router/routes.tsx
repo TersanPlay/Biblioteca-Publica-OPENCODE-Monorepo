@@ -5,6 +5,7 @@ import { RequireAdmin, RequireAuth } from './guards';
 import { HomePage } from '../../pages/public/home';
 import { CatalogPage } from '../../pages/public/catalog';
 import { BookDetailsPage } from '../../pages/public/book-details';
+import { ArchitecturePage } from '../../pages/public/architecture';
 import { LoginPage } from '../../pages/auth/login';
 import { DashboardPage } from '../../pages/admin/dashboard';
 import { BooksPage } from '../../pages/admin/books';
@@ -32,6 +33,7 @@ export function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="catalogo" element={<CatalogPage />} />
         <Route path="livros/:id" element={<BookDetailsPage />} />
+        <Route path="arquitetura" element={<ArchitecturePage />} />
       </Route>
       <Route path="login" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
