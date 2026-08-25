@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, CalendarCheck, Clock3, Globe, Library, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Blocks, BookOpen, CalendarCheck, Clock3, Globe, Library, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { Badge } from '../../components/ui/badge';
@@ -85,6 +85,23 @@ export function HomePage() {
               </Link>
             </div>
           </form>
+          <Link
+            to="/arquitetura"
+            onMouseMove={trackSpotlight}
+            className={cn(shellCls, 'mt-5 inline-block max-w-sm')}
+          >
+            <Spotlight />
+            <span className={cn(coreCls, 'flex items-center gap-4 p-4')}>
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary">
+                <Blocks className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-bold text-ink">Arquitetura do projeto</span>
+                <span className="block text-[12.5px] text-muted">Veja como o sistema foi construído</span>
+              </span>
+              <ArrowRight className="ml-auto size-4 shrink-0 text-primary transition-transform duration-200 [transition-timing-function:var(--ease)] group-hover:translate-x-1" />
+            </span>
+          </Link>
         </div>
       </section>
 
