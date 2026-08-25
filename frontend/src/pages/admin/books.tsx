@@ -28,6 +28,7 @@ export function BooksPage() {
   const [params, setParams] = useSearchParams();
   const q = params.get('q') ?? '';
   const category = params.get('category') ?? '';
+  const format = params.get('format') ?? '';
   const availability = params.get('availability') ?? '';
   const status = params.get('status') ?? 'all';
   const page = Number(params.get('page') ?? '1');
@@ -56,6 +57,7 @@ export function BooksPage() {
       .list({
         search: debounced || undefined,
         categoryId: category || undefined,
+        format: format || undefined,
         availability: availability === 'available' ? 'available' : availability === 'unavailable' ? 'unavailable' : undefined,
         includeArchived: status === 'active' ? 0 : 1,
         page,
@@ -64,7 +66,7 @@ export function BooksPage() {
       .then(setData)
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [debounced, category, availability, status, page]);
+  }, [debounced, category, format, availability, status, page]);
 
   const syncParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -103,6 +105,17 @@ export function BooksPage() {
           onChange={(v) => syncParam('category', v === 'all' ? '' : v)}
           options={[{ value: 'all', label: 'Todas as categorias' }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]}
           className="lg:w-52"
+        />
+        <NativeSelect
+          value={format || 'all'}
+          onChange={(v) => syncParam('format', v === 'all' ? '' : v)}
+          options={[
+            { value: 'all', label: 'Todos os formatos' },
+            { value: 'CAPA', label: 'Capa' },
+            { value: 'BROCHURA', label: 'Brochura' },
+            { value: 'ESPIRAL', label: 'Espiral' },
+          ]}
+          className="lg:w-44"
         />
         <NativeSelect
           value={status}
@@ -269,7 +282,7 @@ export function BooksPage() {
             setArchiving(null);
             setLoading(true);
             booksApi
-              .list({ search: debounced || undefined, categoryId: category || undefined, availability: availability === 'available' ? 'available' : availability === 'unavailable' ? 'unavailable' : undefined, includeArchived: status === 'active' ? 0 : 1, page, pageSize: 10 })
+              .list({ search: debounced || undefined, categoryId: category || undefined, format: format || undefined, availability: availability === 'available' ? 'available' : availability === 'unavailable' ? 'unavailable' : undefined, includeArchived: status === 'active' ? 0 : 1, page, pageSize: 10 })
               .then(setData)
               .catch((err) => setError(apiErrorMessage(err)))
               .finally(() => setLoading(false));

@@ -186,6 +186,7 @@ bookRouter.get(
     const where: any = {
 isArchived: q.includeArchived ? undefined : false,
       ...(q.categoryId ? { categories: { some: { categoryId: q.categoryId } } } : {}),
+      ...(q.format ? { format: q.format } : {}),
       ...(search
         ? {
 OR: [

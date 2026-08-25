@@ -215,6 +215,7 @@ export const listQuerySchema = paginationSchema.extend({
 export const bookQuerySchema = paginationSchema.extend({
   search: strOpt,
   categoryId: intOpt,
+  format: z.enum(['CAPA', 'BROCHURA', 'ESPIRAL']).nullish(),
   availability: z.enum(['available', 'unavailable']).nullish(),
   sort: z.enum(['newest', 'oldest', 'title']).default('newest'),
   includeArchived: z.coerce.boolean().default(false),

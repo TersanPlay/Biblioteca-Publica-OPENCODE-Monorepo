@@ -65,6 +65,8 @@ model Category {
   bookLinks   BookCategory[]
 }
 
+// SQLite não suporta enums do Prisma. Os valores abaixo são validados na borda da API
+// por z.enum em backend/src/validation.ts (bookSchema e bookQuerySchema).
 // BookFormat: CAPA, BROCHURA, ESPIRAL
 // AcquisitionType: COMPRA, DOACAO, REPOSICAO, PRODUCAO_INTERNA, TROCA, EMPRESTIMO_BIBLIOTECAS, LICITACAO, PERMUTA, CONVENIO
 
