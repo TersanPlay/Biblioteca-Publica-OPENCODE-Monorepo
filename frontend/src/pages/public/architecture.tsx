@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import {
   Boxes,
   FolderTree,
@@ -11,12 +11,12 @@ import { Badge } from '../../components/ui/badge';
 import { TD, TH, TBody, THead, TR, Table } from '../../components/ui/table';
 
 const SECTIONS = [
-  { id: 'visao-geral', label: 'Visão geral' },
+  { id: 'visao-geral', label: 'VisÃ£o geral' },
   { id: 'stack', label: 'Stack' },
   { id: 'estrutura', label: 'Estrutura' },
   { id: 'fluxo-de-dados', label: 'Fluxo de dados' },
-  { id: 'seguranca', label: 'Segurança' },
-  { id: 'operacao', label: 'Operação' },
+  { id: 'seguranca', label: 'SeguranÃ§a' },
+  { id: 'operacao', label: 'OperaÃ§Ã£o' },
 ];
 
 const BACKEND_STACK = [
@@ -24,17 +24,17 @@ const BACKEND_STACK = [
   ['HTTP', 'Express 4'],
   ['ORM', 'Prisma 5 (@prisma/client)'],
   ['Banco', 'SQLite (backend/prisma/dev.db)'],
-  ['Validação', 'Zod 3 (src/validation.ts)'],
-  ['Autenticação', 'JWT (jsonwebtoken) + bcryptjs'],
+  ['ValidaÃ§Ã£o', 'Zod 3 (src/validation.ts)'],
+  ['AutenticaÃ§Ã£o', 'JWT (jsonwebtoken) + bcryptjs'],
   ['Rate limit', 'express-rate-limit'],
-  ['Cron', 'node-cron (backups automáticos)'],
+  ['Cron', 'node-cron (backups automÃ¡ticos)'],
 ] as const;
 
 const FRONTEND_STACK = [
   ['Framework', 'React 18 + TypeScript'],
   ['Build', 'Vite 5'],
   ['Estilo', 'Tailwind CSS 3 + Radix UI + Lucide'],
-  ['Formulários', 'React Hook Form + Zod resolvers'],
+  ['FormulÃ¡rios', 'React Hook Form + Zod resolvers'],
   ['Rotas', 'React Router 6'],
   ['HTTP', 'Axios (interceptor JWT)'],
 ] as const;
@@ -42,12 +42,12 @@ const FRONTEND_STACK = [
 const FLOW_STEPS = [
   'A SPA chama os clientes de features/api.ts (ex.: loansApi.createBatch).',
   'O interceptor de services/axios.ts injeta Authorization: Bearer <token> salvo em localStorage.',
-  'O Express roteia para o módulo correspondente (app.ts monta /api/<recurso>).',
-  'Corpo e query são validados com Zod; falha responde 400 com { error }.',
-  'A regra de negócio roda via Prisma (SQLite), geralmente em $transaction.',
-  'Toda mutação registra auditoria com writeAudit().',
+  'O Express roteia para o mÃ³dulo correspondente (app.ts monta /api/<recurso>).',
+  'Corpo e query sÃ£o validados com Zod; falha responde 400 com { error }.',
+  'A regra de negÃ³cio roda via Prisma (SQLite), geralmente em $transaction.',
+  'Toda mutaÃ§Ã£o registra auditoria com writeAudit().',
   'Erros conhecidos viram HttpError; o errorHandler devolve { error } com o status correto.',
-  'Em 401 (fora do login), o interceptor limpa o token e encerra a sessão.',
+  'Em 401 (fora do login), o interceptor limpa o token e encerra a sessÃ£o.',
 ];
 
 const ENV_KEYS = [
@@ -144,19 +144,19 @@ export function ArchitecturePage() {
         <header className="reveal in max-w-3xl">
           <Badge variant="primary" className="mb-4">
             <Boxes className="size-3.5" />
-            Documentação técnica
+            DocumentaÃ§Ã£o tÃ©cnica
           </Badge>
           <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-ink">
             Arquitetura <span className="block text-primary">do projeto</span>
           </h1>
           <p className="mt-4 max-w-2xl text-[15.5px] leading-relaxed text-muted">
-            Como a biblioteca digital é construída: camadas, tecnologias, fluxo de dados,
-            segurança e operação.
+            Como a biblioteca digital Ã© construÃ­da: camadas, tecnologias, fluxo de dados,
+            seguranÃ§a e operaÃ§Ã£o.
           </p>
         </header>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[210px_minmax(0,1fr)]">
-          <nav aria-label="Seções" className="lg:sticky lg:top-24 lg:self-start">
+          <nav aria-label="SeÃ§Ãµes" className="lg:sticky lg:top-24 lg:self-start">
             <ul className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
               {SECTIONS.map((s) => (
                 <li key={s.id} className="shrink-0 lg:shrink">
@@ -171,20 +171,20 @@ export function ArchitecturePage() {
             </ul>
           </nav>
 
-          <main className="space-y-12">
-            <Section id="visao-geral" icon={Layers} title="Visão geral">
+          <div className="space-y-12">
+            <Section id="visao-geral" icon={Layers} title="VisÃ£o geral">
               <Card>
                 <div className="grid items-stretch gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
-                  <LayerBox title="Frontend" sub="React + Vite · porta 5173" />
-                  <FlowArrow label="HTTP/JSON · JWT Bearer" />
-                  <LayerBox primary title="Backend" sub="Express API · porta 3333 /api" />
+                  <LayerBox title="Frontend" sub="React + Vite Â· porta 5173" />
+                  <FlowArrow label="HTTP/JSON Â· JWT Bearer" />
+                  <LayerBox primary title="Backend" sub="Express API Â· porta 3333 /api" />
                   <FlowArrow label="Prisma ORM" />
                   <LayerBox title="SQLite" sub="backend/prisma/dev.db" />
                 </div>
                 <p className="mt-4 text-[13px] leading-relaxed text-muted">
                   SPA autenticada por JWT stateless. Em desenvolvimento, o Vite faz proxy de
                   {' '}<code className="rounded bg-surfaceWarm px-1.5 py-0.5 font-mono text-[11.5px]">/api</code>{' '}
-                  para a porta 3333. O schema Prisma está preparado para migração futura ao PostgreSQL.
+                  para a porta 3333. O schema Prisma estÃ¡ preparado para migraÃ§Ã£o futura ao PostgreSQL.
                 </p>
               </Card>
             </Section>
@@ -225,20 +225,20 @@ export function ArchitecturePage() {
                 <pre className="overflow-x-auto rounded-control bg-surfaceWarm p-4 font-mono text-[12px] leading-relaxed text-ink">
 {`backend/
   prisma/schema.prisma      Modelos do banco
-  scripts/smoke.ts          Suíte E2E via API
+  scripts/smoke.ts          SuÃ­te E2E via API
   src/
     app.ts                  Routers, CORS, handlers de erro
     validation.ts           Schemas Zod + helpers
     lib/                    prisma, audit, overdue, cover...
     middleware/             auth, rate-limits, errors
-    modules/                Um router por domínio
+    modules/                Um router por domÃ­nio
 
 frontend/
   src/
     app/router/             Rotas e guardas
     components/             layout/ e ui/ (design system)
     features/api.ts         Clientes por entidade
-    pages/public|admin/     Páginas
+    pages/public|admin/     PÃ¡ginas
     services/axios.ts       Interceptor JWT + logout 401
     types/api.ts            Tipos das entidades`}
                 </pre>
@@ -260,14 +260,14 @@ frontend/
               </Card>
             </Section>
 
-            <Section id="seguranca" icon={ShieldCheck} title="Segurança">
+            <Section id="seguranca" icon={ShieldCheck} title="SeguranÃ§a">
               <div className="space-y-3">
                 <Card>
                   <ul className="space-y-2 text-[13.5px] leading-relaxed text-ink">
-                    <li>• Login valida credenciais com bcrypt e emite JWT assinado com expiração padrão de 8 horas.</li>
-                    <li>• Comparação contra hash dummy quando o usuário não existe, evitando enumeração de e-mails.</li>
-                    <li>• requireAuth consulta o banco a cada requisição: usuário precisa existir e estar ACTIVE.</li>
-                    <li>• Rate limits: login 10 tentativas / 15 min · consulta de capa 30 / 15 min.</li>
+                    <li>â€¢ Login valida credenciais com bcrypt e emite JWT assinado com expiraÃ§Ã£o padrÃ£o de 8 horas.</li>
+                    <li>â€¢ ComparaÃ§Ã£o contra hash dummy quando o usuÃ¡rio nÃ£o existe, evitando enumeraÃ§Ã£o de e-mails.</li>
+                    <li>â€¢ requireAuth consulta o banco a cada requisiÃ§Ã£o: usuÃ¡rio precisa existir e estar ACTIVE.</li>
+                    <li>â€¢ Rate limits: login 10 tentativas / 15 min Â· consulta de capa 30 / 15 min.</li>
                   </ul>
                 </Card>
                 <Card>
@@ -281,11 +281,11 @@ frontend/
                     <TBody>
                       <TR>
                         <TD className="font-extrabold">ADMIN</TD>
-                        <TD>Tudo: acervo, circulação, relatórios, usuários, configurações, auditoria e backup</TD>
+                        <TD>Tudo: acervo, circulaÃ§Ã£o, relatÃ³rios, usuÃ¡rios, configuraÃ§Ãµes, auditoria e backup</TD>
                       </TR>
                       <TR>
                         <TD className="font-extrabold">ATTENDANT</TD>
-                        <TD>Operação do dia a dia: acervo, empréstimos, devoluções, reservas e leitores</TD>
+                        <TD>OperaÃ§Ã£o do dia a dia: acervo, emprÃ©stimos, devoluÃ§Ãµes, reservas e leitores</TD>
                       </TR>
                     </TBody>
                   </Table>
@@ -293,16 +293,16 @@ frontend/
               </div>
             </Section>
 
-            <Section id="operacao" icon={Wrench} title="Operação">
+            <Section id="operacao" icon={Wrench} title="OperaÃ§Ã£o">
               <div className="space-y-3">
                 <Card>
                   <h3 className="mb-2 text-[13px] font-extrabold uppercase tracking-wide text-primary-dark">
                     Backups
                   </h3>
                   <p className="text-[13.5px] leading-relaxed text-ink">
-                    Automáticos às 18:30 e 23:45 via node-cron usando{' '}
+                    AutomÃ¡ticos Ã s 18:30 e 23:45 via node-cron usando{' '}
                     <code className="rounded bg-surfaceWarm px-1.5 py-0.5 font-mono text-[11.5px]">VACUUM INTO</code>,
-                    com rotação dos 5 arquivos mais recentes e restauração protegida por papel ADMIN.
+                    com rotaÃ§Ã£o dos 5 arquivos mais recentes e restauraÃ§Ã£o protegida por papel ADMIN.
                   </p>
                 </Card>
                 <Card>
@@ -310,9 +310,9 @@ frontend/
                     Erros
                   </h3>
                   <p className="mb-2 text-[13.5px] leading-relaxed text-ink">
-                    Formato único{' '}
+                    Formato Ãºnico{' '}
                     <code className="rounded bg-surfaceWarm px-1.5 py-0.5 font-mono text-[11.5px]">{`{ "error": "<mensagem>" }`}</code>.
-                    Validação 400 · negócio 400/401/403/404/409 · duplicado 409 · inexistente 404 · não tratado 500.
+                    ValidaÃ§Ã£o 400 Â· negÃ³cio 400/401/403/404/409 Â· duplicado 409 Â· inexistente 404 Â· nÃ£o tratado 500.
                   </p>
                 </Card>
                 <Card>
@@ -330,12 +330,12 @@ frontend/
                     ))}
                   </div>
                   <p className="mt-2 text-[12.5px] text-muted">
-                    Nomes das variáveis — valores definidos apenas no .env local, nunca versionados.
+                    Nomes das variÃ¡veis â€” valores definidos apenas no .env local, nunca versionados.
                   </p>
                 </Card>
               </div>
             </Section>
-          </main>
+          </div>
         </div>
       </div>
     </div>
