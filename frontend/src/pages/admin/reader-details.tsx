@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, CheckCircle2, Mail, MapPin, Pencil, Phone, UserCheck, UserRound, UserX } from 'lucide-react';
+import { ArrowLeft, Ban, CheckCircle2, FileText, Mail, MapPin, Pencil, Phone, UserCheck, UserRound, UserX } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -218,6 +218,7 @@ export function ReaderDetailsPage() {
                   <TH>Vencimento</TH>
                   <TH>Devolução</TH>
                   <TH>Status</TH>
+                  <TH className="text-right">Documentos</TH>
                 </TR>
               </THead>
               <TBody>
@@ -228,6 +229,28 @@ export function ReaderDetailsPage() {
                     <TD className="text-muted">{formatDate(l.dueDate)}</TD>
                     <TD className="text-muted">{l.returnedAt ? formatDate(l.returnedAt) : '—'}</TD>
                     <TD><LoanStatusBadge status={l.status} /></TD>
+                    <TD className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          title="Termo de Empréstimo"
+                          onClick={() => window.open(`${import.meta.env.VITE_API_URL || ''}/api/loans/${l.id}/term`, '_blank')}
+                        >
+                          <FileText className="size-3.5" />
+                        </Button>
+                        {l.returnedAt && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            title="Termo de Devolução"
+                            onClick={() => window.open(`${import.meta.env.VITE_API_URL || ''}/api/loans/${l.id}/return-term`, '_blank')}
+                          >
+                            <FileText className="size-3.5 text-success" />
+                          </Button>
+                        )}
+                      </div>
+                    </TD>
                   </TR>
                 ))}
               </TBody>
