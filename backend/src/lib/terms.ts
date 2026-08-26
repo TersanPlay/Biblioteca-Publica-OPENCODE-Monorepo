@@ -28,16 +28,15 @@ interface LibrarySettings {
   libraryEmail: string | null;
 }
 
-const COLORS = {
+const C = {
   primary: '#087F8C',
-  primaryLight: '#E8F5F6',
   ink: '#1A1A1A',
   gray: '#6B7280',
   grayLight: '#E5E7EB',
-  grayBg: '#F9FAFB',
   white: '#FFFFFF',
-  black: '#18181B',
 };
+
+const M = { left: 50, right: 545, contentLeft: 60, contentWidth: 485 };
 
 function formatDate(d: Date | string): string {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -47,318 +46,253 @@ function formatDateTime(d: Date | string): string {
   return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function generateVerificationCode(prefix: string, id: number, date: Date): string {
-  const raw = `${prefix}-${id}-${date.getTime()}`;
-  const hash = createHash('sha256').update(raw).digest('hex').slice(0, 6).toUpperCase();
+function verificationCode(prefix: string, id: number, date: Date): string {
+  const hash = createHash('sha256').update(`${prefix}-${id}-${date.getTime()}`).digest('hex').slice(0, 6).toUpperCase();
   return `${prefix}-${date.getFullYear()}-${String(id).padStart(6, '0')}-${hash}`;
 }
 
 function drawBookIcon(doc: typeof PDFDocument, x: number, y: number, size: number) {
-  const s = size;
-  const sx = s / 24;
-  const sy = s / 24;
-
+  const s = size, sx = s / 24, sy = s / 24;
   doc.save();
-  doc.fill(COLORS.primary).roundedRect(x, y, s, s, 3).fill();
-  doc.strokeColor(COLORS.white).lineWidth(1.4).lineCap('round').lineJoin('round').fillColor('none');
-
+  doc.fill(C.primary).roundedRect(x, y, s, s, 3).fill();
+  doc.strokeColor(C.white).lineWidth(1.4).lineCap('round').lineJoin('round').fillColor('none');
   doc.moveTo(x + 12 * sx, y + 7 * sy).lineTo(x + 12 * sx, y + 21 * sy).stroke();
-
   doc.moveTo(x + 2 * sx, y + 4 * sy)
-    .lineTo(x + 2 * sx, y + 17 * sy)
-    .lineTo(x + 4 * sx, y + 19 * sy)
-    .lineTo(x + 9 * sx, y + 21 * sy)
+    .lineTo(x + 2 * sx, y + 17 * sy).lineTo(x + 4 * sx, y + 19 * sy).lineTo(x + 9 * sx, y + 21 * sy)
     .lineTo(x + 12 * sx, y + 7 * sy)
-    .lineTo(x + 15 * sx, y + 21 * sy)
-    .lineTo(x + 20 * sx, y + 19 * sy)
-    .lineTo(x + 22 * sx, y + 17 * sy)
-    .lineTo(x + 22 * sx, y + 4 * sy)
-    .lineTo(x + 20 * sx, y + 3 * sy)
-    .lineTo(x + 16 * sx, y + 3 * sy)
+    .lineTo(x + 15 * sx, y + 21 * sy).lineTo(x + 20 * sx, y + 19 * sy).lineTo(x + 22 * sx, y + 17 * sy)
+    .lineTo(x + 22 * sx, y + 4 * sy).lineTo(x + 20 * sx, y + 3 * sy).lineTo(x + 16 * sx, y + 3 * sy)
     .lineTo(x + 12 * sx, y + 7 * sy)
-    .lineTo(x + 8 * sx, y + 3 * sy)
-    .lineTo(x + 4 * sx, y + 3 * sy)
-    .closePath()
-    .stroke();
-
+    .lineTo(x + 8 * sx, y + 3 * sy).lineTo(x + 4 * sx, y + 3 * sy).closePath().stroke();
   doc.restore();
 }
 
-function drawHeader(doc: typeof PDFDocument, settings: LibrarySettings, _title: string): number {
-  const name = settings.libraryName || 'Biblioteca Pública';
-
-  drawBookIcon(doc, 50, 35, 32);
-
-  doc.fontSize(13).font('Helvetica-Bold').fillColor(COLORS.ink).text(name, 90, 38, { width: 320 });
-
-  doc.fontSize(7.5).font('Helvetica').fillColor(COLORS.gray);
-  const contactParts: string[] = [];
-  if (settings.libraryAddress) contactParts.push(settings.libraryAddress);
-  if (settings.libraryPhone) contactParts.push(`Tel: ${settings.libraryPhone}`);
-  if (settings.libraryEmail) contactParts.push(settings.libraryEmail);
-  if (contactParts.length > 0) {
-    doc.text(contactParts.join('  |  '), 90, doc.y + 1, { width: 400 });
-  }
-
-  const lineY = Math.max(doc.y + 6, 80);
-  doc.save().moveTo(50, lineY).lineTo(545, lineY).lineWidth(1).strokeColor(COLORS.primary).stroke().restore();
-
-  return lineY + 10;
+function drawHeader(doc: typeof PDFDocument, s: LibrarySettings): number {
+  drawBookIcon(doc, 50, 32, 30);
+  doc.fontSize(12).font('Helvetica-Bold').fillColor(C.ink).text(s.libraryName || 'Biblioteca Pública', 88, 35, { width: 320 });
+  doc.fontSize(7).font('Helvetica').fillColor(C.gray);
+  const parts: string[] = [];
+  if (s.libraryAddress) parts.push(s.libraryAddress);
+  if (s.libraryPhone) parts.push(`Tel: ${s.libraryPhone}`);
+  if (s.libraryEmail) parts.push(s.libraryEmail);
+  if (parts.length) doc.text(parts.join('  |  '), 88, doc.y + 1, { width: 420 });
+  const ly = Math.max(doc.y + 5, 74);
+  doc.save().moveTo(50, ly).lineTo(545, ly).lineWidth(0.8).strokeColor(C.primary).stroke().restore();
+  return ly + 8;
 }
 
-function drawSection(doc: typeof PDFDocument, y: number, title: string, contentFn: (doc: typeof PDFDocument) => void): number {
-  doc.save();
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(COLORS.primary).text(title.toUpperCase(), 55, y + 8);
-  doc.restore();
-
-  const contentY = y + 22;
-  doc.y = contentY;
-  doc.x = 55;
-  contentFn(doc);
-  const contentEndY = doc.y + 8;
-
-  doc.save()
-    .lineWidth(0.5)
-    .strokeColor(COLORS.grayLight)
-    .roundedRect(50, y, 495, contentEndY - y, 4)
-    .stroke()
-    .restore();
-
-  return contentEndY + 6;
+function section(doc: typeof PDFDocument, y: number, title: string, h: (doc: typeof PDFDocument) => void): number {
+  doc.save().fontSize(8).font('Helvetica-Bold').fillColor(C.primary).text(title.toUpperCase(), 54, y + 6).restore();
+  doc.y = y + 18; doc.x = 55;
+  h(doc);
+  const ey = doc.y + 5;
+  doc.save().lineWidth(0.4).strokeColor(C.grayLight).roundedRect(50, y, 495, ey - y, 3).stroke().restore();
+  return ey + 4;
 }
 
-function drawField(doc: typeof PDFDocument, label: string, value: string, x: number, y: number, w: number) {
-  doc.save();
-  doc.fontSize(7).font('Helvetica').fillColor(COLORS.gray).text(label, x, y, { width: w });
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(COLORS.ink).text(value || '—', x, doc.y + 1, { width: w });
+function field(doc: typeof PDFDocument, label: string, value: string, x: number, y: number, w: number) {
+  doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray).text(label, x, y, { width: w });
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(C.ink).text(value || '—', x, doc.y + 0.5, { width: w });
   doc.restore();
 }
 
-function drawFooter(doc: typeof PDFDocument, verificationCode: string, generatedAt: Date, loanNumber: string | null, recordedBy: string | null) {
-  const footerY = 760;
+function fieldRow(doc: typeof PDFDocument, fields: { label: string; value: string }[], y: number) {
+  const n = fields.length;
+  const totalW = M.contentWidth;
+  const gap = 12;
+  const colW = (totalW - gap * (n - 1)) / n;
+  fields.forEach((f, i) => field(doc, f.label, f.value, M.contentLeft + i * (colW + gap), y, colW));
+}
 
-  doc.save().moveTo(50, footerY).lineTo(545, footerY).lineWidth(0.5).strokeColor(COLORS.grayLight).stroke().restore();
-
-  doc.save();
-  doc.fontSize(7).font('Helvetica').fillColor(COLORS.gray);
-
-  doc.text(`Código de verificação: ${verificationCode}`, 50, footerY + 6, { width: 300 });
-  doc.text(`Documento gerado eletronicamente pelo Sistema de Gestão da Biblioteca.`, 50, footerY + 16, { width: 300 });
-
-  const rightText = `Emitido em ${formatDateTime(generatedAt)}`;
-  doc.text(rightText, 350, footerY + 6, { width: 195, align: 'right' });
-
-  if (loanNumber) {
-    doc.text(`Empréstimo: ${loanNumber}`, 350, footerY + 16, { width: 195, align: 'right' });
-  }
-  if (recordedBy) {
-    doc.text(`Registrado por: ${recordedBy}`, 350, footerY + 26, { width: 195, align: 'right' });
-  }
-
+function drawFooter(doc: typeof PDFDocument, code: string, at: Date, num: string | null, by: string | null) {
+  const fy = 755;
+  doc.save().moveTo(50, fy).lineTo(545, fy).lineWidth(0.4).strokeColor(C.grayLight).stroke().restore();
+  doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray);
+  doc.text(`Código de verificação: ${code}`, 50, fy + 5, { width: 260 });
+  doc.text('Documento gerado eletronicamente pelo Sistema de Gestão da Biblioteca.', 50, fy + 14, { width: 260 });
+  doc.text(`Emitido em ${formatDateTime(at)}`, 340, fy + 5, { width: 205, align: 'right' });
+  if (num) doc.text(`Empréstimo: ${num}`, 340, fy + 14, { width: 205, align: 'right' });
+  if (by) doc.text(`Registrado por: ${by}`, 340, fy + 23, { width: 205, align: 'right' });
   doc.restore();
 }
 
-function drawPageNumber(doc: typeof PDFDocument, _currentPage: number, _totalPages: number) {
-  doc.save();
-  doc.fontSize(7).font('Helvetica').fillColor(COLORS.gray);
-  doc.text(`Página 1 de 1`, 50, 790, { width: 495, align: 'center' });
-  doc.restore();
+function drawPageNum(doc: typeof PDFDocument) {
+  doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray).text('Página 1 de 1', 50, 788, { width: 495, align: 'center' }).restore();
 }
 
 export function generateLoanTermPDF(loan: LoanTermData, settings: LibrarySettings): typeof PDFDocument {
   const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
-  const termNumber = loan.number || `EMP-${String(loan.id).padStart(6, '0')}`;
-  const verificationCode = generateVerificationCode('EMP', loan.id, loan.createdAt);
+  const num = loan.number || `EMP-${String(loan.id).padStart(6, '0')}`;
+  const code = verificationCode('EMP', loan.id, loan.createdAt);
 
-  const headerY = drawHeader(doc, settings, 'TERMO DE EMPRÉSTIMO');
-
-  doc.y = headerY + 2;
-  doc.x = 50;
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(COLORS.ink).text('TERMO DE EMPRÉSTIMO', { align: 'center' });
+  const hY = drawHeader(doc, settings);
+  doc.y = hY; doc.x = 50;
+  doc.fontSize(15).font('Helvetica-Bold').fillColor(C.ink).text('TERMO DE EMPRÉSTIMO', { align: 'center' });
+  doc.fontSize(9).font('Helvetica').fillColor(C.primary).text(num, { align: 'center' });
   doc.moveDown(0.3);
-  doc.fontSize(10).font('Helvetica').fillColor(COLORS.primary).text(termNumber, { align: 'center' });
-  doc.moveDown(0.5);
 
-  let y = doc.y + 4;
+  let y = doc.y + 2;
 
-  y = drawSection(doc, y, '1. Dados do Empréstimo', (doc) => {
-    drawField(doc, 'Número do empréstimo:', termNumber, 60, doc.y, 200);
-    drawField(doc, 'Data e hora:', formatDateTime(loan.createdAt), 280, doc.y - 14, 200);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Previsão de devolução:', formatDate(loan.dueDate), 60, doc.y, 200);
+  y = section(doc, y, '1. Empréstimo', (doc) => {
+    fieldRow(doc, [
+      { label: 'Número:', value: num },
+      { label: 'Data/Hora:', value: formatDateTime(loan.createdAt) },
+      { label: 'Previsão devolução:', value: formatDate(loan.dueDate) },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '2. Dados do Leitor', (doc) => {
-    drawField(doc, 'Nome completo:', loan.readerNameSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Código do leitor:', `LTR-${String(loan.readerId).padStart(6, '0')}`, 60, doc.y, 200);
+  y = section(doc, y, '2. Leitor', (doc) => {
+    fieldRow(doc, [
+      { label: 'Nome completo:', value: loan.readerNameSnapshot || '—' },
+      { label: 'Código:', value: `LTR-${String(loan.readerId).padStart(6, '0')}` },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '3. Dados do Material Bibliográfico', (doc) => {
-    drawField(doc, 'Título:', loan.bookTitleSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Autor(es):', loan.bookAuthorSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'ISBN:', loan.bookIsbnSnapshot || '—', 60, doc.y, 150);
-    drawField(doc, 'Código/Tombo:', `#${loan.bookNumberSnapshot || String(loan.bookId)}`, 280, doc.y - 14, 150);
+  y = section(doc, y, '3. Material Bibliográfico', (doc) => {
+    fieldRow(doc, [
+      { label: 'Título:', value: loan.bookTitleSnapshot || '—' },
+      { label: 'Autor(es):', value: loan.bookAuthorSnapshot || '—' },
+    ], doc.y);
+    doc.y += 16;
+    fieldRow(doc, [
+      { label: 'ISBN:', value: loan.bookIsbnSnapshot || '—' },
+      { label: 'Código/Tombo:', value: `#${loan.bookNumberSnapshot || String(loan.bookId)}` },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '4. Registro do Atendimento', (doc) => {
-    drawField(doc, 'Servidor/Responsável:', loan.createdByNameSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Data do empréstimo:', formatDate(loan.loanDate), 60, doc.y, 200);
-    doc.y = doc.y + 10;
-    doc.save();
-    doc.fontSize(8).font('Helvetica').fillColor(COLORS.gray);
-    doc.text('Declaro que o material acima foi recebido pelo leitor na data indicada, comprometendo-se à devolução no prazo estabelecido.', 60, doc.y, { width: 430, lineGap: 2 });
+  y = section(doc, y, '4. Registro do Atendimento', (doc) => {
+    fieldRow(doc, [
+      { label: 'Servidor/Responsável:', value: loan.createdByNameSnapshot || '—' },
+      { label: 'Data do empréstimo:', value: formatDate(loan.loanDate) },
+    ], doc.y);
+    doc.y += 16;
+    doc.save().fontSize(7.5).font('Helvetica').fillColor(C.gray);
+    doc.text('Declaro que o material acima foi recebido pelo leitor na data indicada, comprometendo-se à devolução no prazo estabelecido.', M.contentLeft, doc.y, { width: M.contentWidth, lineGap: 1.5 });
     doc.restore();
   });
 
-  y = drawSection(doc, y, '5. Assinaturas', (doc) => {
-    doc.save();
-    doc.fontSize(8).font('Helvetica').fillColor(COLORS.ink);
-
-    doc.text('________________________________', 60, doc.y + 8);
-    doc.fontSize(7).fillColor(COLORS.gray);
-    doc.text('Assinatura do Leitor', 60, doc.y + 2);
-    doc.text(loan.readerNameSnapshot || '—', 60, doc.y + 10);
-
-    doc.fontSize(8).fillColor(COLORS.ink);
-    doc.text('________________________________', 300, y + 18);
-    doc.fontSize(7).fillColor(COLORS.gray);
-    doc.text('Responsável pelo atendimento', 300, y + 32);
-    doc.text(loan.createdByNameSnapshot || '—', 300, y + 42);
-
+  y = section(doc, y, '5. Assinaturas', (doc) => {
+    const sy = doc.y + 6;
+    doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
+    doc.text('________________________________', 60, sy);
+    doc.fontSize(6.5).fillColor(C.gray).text('Assinatura do Leitor', 60, doc.y + 1);
+    doc.text(loan.readerNameSnapshot || '—', 60, doc.y + 8);
+    doc.fontSize(7.5).fillColor(C.ink).text('________________________________', 300, sy);
+    doc.fontSize(6.5).fillColor(C.gray).text('Responsável pelo atendimento', 300, doc.y - 19);
+    doc.text(loan.createdByNameSnapshot || '—', 300, doc.y + 8);
     doc.restore();
-    doc.y = y + 58;
+    doc.y = sy + 40;
   });
 
-  drawFooter(doc, verificationCode, loan.createdAt, termNumber, loan.createdByNameSnapshot);
-  drawPageNumber(doc, 1, 1);
-
+  drawFooter(doc, code, loan.createdAt, num, loan.createdByNameSnapshot);
+  drawPageNum(doc);
   return doc;
 }
 
 export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySettings): typeof PDFDocument {
   const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
 
-  const loanNumber = loan.number || `EMP-${String(loan.id).padStart(6, '0')}`;
-  const returnNumber = `DEV-${String(loan.id).padStart(6, '0')}`;
-  const verificationCode = generateVerificationCode('DEV', loan.id, loan.returnedAt || new Date());
+  const loanNum = loan.number || `EMP-${String(loan.id).padStart(6, '0')}`;
+  const retNum = `DEV-${String(loan.id).padStart(6, '0')}`;
+  const code = verificationCode('DEV', loan.id, loan.returnedAt || new Date());
 
   const loanDays = loan.returnedAt
-    ? Math.ceil((new Date(loan.returnedAt).getTime() - new Date(loan.loanDate).getTime()) / 86400000)
-    : 0;
+    ? Math.ceil((new Date(loan.returnedAt).getTime() - new Date(loan.loanDate).getTime()) / 86400000) : 0;
   const isOverdue = loan.returnedAt && new Date(loan.returnedAt) > new Date(loan.dueDate);
   const lateDays = isOverdue
-    ? Math.ceil((new Date(loan.returnedAt!).getTime() - new Date(loan.dueDate).getTime()) / 86400000)
-    : 0;
+    ? Math.ceil((new Date(loan.returnedAt!).getTime() - new Date(loan.dueDate).getTime()) / 86400000) : 0;
 
-  const returnStatus = isOverdue ? `DEVOLVIDO COM ATRASO (${lateDays} dia(s))` : 'DEVOLVIDO NO PRAZO';
-  const returnStatusColor = isOverdue ? '#DC2626' : '#16A34A';
+  const statusText = isOverdue ? `DEVOLVIDO COM ATRASO (${lateDays} dia(s))` : 'DEVOLVIDO NO PRAZO';
+  const statusColor = isOverdue ? '#DC2626' : '#16A34A';
+  const condMap: Record<string, string> = { 'BOM': 'Bom estado', 'REGULAR': 'Regular', 'DANIFICADO': 'Danificado' };
+  const condLabel = loan.returnCondition ? (condMap[loan.returnCondition] || loan.returnCondition) : 'Não informado';
 
-  const conditionMap: Record<string, string> = {
-    'BOM': 'Bom estado',
-    'REGULAR': 'Regular',
-    'DANIFICADO': 'Danificado',
-  };
-  const conditionLabel = loan.returnCondition ? (conditionMap[loan.returnCondition] || loan.returnCondition) : 'Não informado';
-
-  const headerY = drawHeader(doc, settings, 'TERMO DE DEVOLUÇÃO');
-
-  doc.y = headerY + 2;
-  doc.x = 50;
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(COLORS.ink).text('TERMO DE DEVOLUÇÃO', { align: 'center' });
+  const hY = drawHeader(doc, settings);
+  doc.y = hY; doc.x = 50;
+  doc.fontSize(15).font('Helvetica-Bold').fillColor(C.ink).text('TERMO DE DEVOLUÇÃO', { align: 'center' });
+  doc.fontSize(9).font('Helvetica').fillColor(C.primary).text(retNum, { align: 'center' });
   doc.moveDown(0.3);
-  doc.fontSize(10).font('Helvetica').fillColor(COLORS.primary).text(returnNumber, { align: 'center' });
-  doc.moveDown(0.5);
 
-  let y = doc.y + 4;
+  let y = doc.y + 2;
 
-  y = drawSection(doc, y, '1. Situação e Condição', (doc) => {
-    doc.save();
-    doc.fontSize(10).font('Helvetica-Bold').fillColor(returnStatusColor).text(returnStatus, 60, doc.y, { width: 430 });
+  y = section(doc, y, '1. Situação e Condição', (doc) => {
+    doc.save().fontSize(9.5).font('Helvetica-Bold').fillColor(statusColor).text(statusText, M.contentLeft, doc.y, { width: M.contentWidth });
     doc.restore();
-    doc.y = doc.y + 10;
-    drawField(doc, 'Condição do material:', conditionLabel, 60, doc.y, 300);
+    doc.y += 10;
+    fieldRow(doc, [
+      { label: 'Condição do material:', value: condLabel },
+    ], doc.y);
     if (loan.returnObservations) {
-      doc.y = doc.y + 12;
-      doc.save();
-      doc.fontSize(7).font('Helvetica').fillColor(COLORS.gray).text('OCORRÊNCIAS:', 60, doc.y);
-      doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.ink).text(loan.returnObservations, 60, doc.y + 2, { width: 430, lineGap: 1 });
+      doc.y += 16;
+      doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray).text('OCORRÊNCIAS:', M.contentLeft, doc.y);
+      doc.fontSize(8).font('Helvetica-Bold').fillColor(C.ink).text(loan.returnObservations, M.contentLeft, doc.y + 1.5, { width: M.contentWidth, lineGap: 1 });
       doc.restore();
     }
   });
 
-  y = drawSection(doc, y, '2. Dados do Empréstimo', (doc) => {
-    const col1 = 60;
-    const col2 = 215;
-    const col3 = 370;
-    const colW = 145;
-
-    drawField(doc, 'Empréstimo:', loanNumber, col1, doc.y, colW);
-    drawField(doc, 'Devolução:', returnNumber, col2, doc.y, colW);
-    drawField(doc, 'Dias de empréstimo:', `${loanDays} dia(s)`, col3, doc.y, colW);
-
-    doc.y = doc.y + 18;
-
-    drawField(doc, 'Data do empréstimo:', formatDate(loan.loanDate), col1, doc.y, colW);
-    drawField(doc, 'Previsão devolução:', formatDate(loan.dueDate), col2, doc.y, colW);
-    drawField(doc, 'Devolução efetiva:', loan.returnedAt ? formatDateTime(loan.returnedAt) : '—', col3, doc.y, colW);
+  y = section(doc, y, '2. Empréstimo', (doc) => {
+    fieldRow(doc, [
+      { label: 'Empréstimo:', value: loanNum },
+      { label: 'Devolução:', value: retNum },
+      { label: 'Dias de empréstimo:', value: `${loanDays} dia(s)` },
+    ], doc.y);
+    doc.y += 16;
+    fieldRow(doc, [
+      { label: 'Data do empréstimo:', value: formatDate(loan.loanDate) },
+      { label: 'Previsão devolução:', value: formatDate(loan.dueDate) },
+      { label: 'Devolução efetiva:', value: loan.returnedAt ? formatDateTime(loan.returnedAt) : '—' },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '3. Dados do Leitor', (doc) => {
-    drawField(doc, 'Nome completo:', loan.readerNameSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Código do leitor:', `LTR-${String(loan.readerId).padStart(6, '0')}`, 60, doc.y, 200);
+  y = section(doc, y, '3. Leitor', (doc) => {
+    fieldRow(doc, [
+      { label: 'Nome completo:', value: loan.readerNameSnapshot || '—' },
+      { label: 'Código:', value: `LTR-${String(loan.readerId).padStart(6, '0')}` },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '4. Dados do Material Bibliográfico', (doc) => {
-    drawField(doc, 'Título:', loan.bookTitleSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Autor(es):', loan.bookAuthorSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'ISBN:', loan.bookIsbnSnapshot || '—', 60, doc.y, 150);
-    drawField(doc, 'Código/Tombo:', `#${loan.bookNumberSnapshot || String(loan.bookId)}`, 280, doc.y - 14, 150);
+  y = section(doc, y, '4. Material Bibliográfico', (doc) => {
+    fieldRow(doc, [
+      { label: 'Título:', value: loan.bookTitleSnapshot || '—' },
+      { label: 'Autor(es):', value: loan.bookAuthorSnapshot || '—' },
+    ], doc.y);
+    doc.y += 16;
+    fieldRow(doc, [
+      { label: 'ISBN:', value: loan.bookIsbnSnapshot || '—' },
+      { label: 'Código/Tombo:', value: `#${loan.bookNumberSnapshot || String(loan.bookId)}` },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '5. Registro da Devolução', (doc) => {
-    doc.save();
-    doc.fontSize(8).font('Helvetica').fillColor(COLORS.ink);
+  y = section(doc, y, '5. Registro da Devolução', (doc) => {
+    doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
     doc.text(
       'Declaro, para os devidos fins, que o material bibliográfico identificado neste documento foi recebido pela biblioteca na data e horário registrados neste termo, ficando encerrada a operação de empréstimo correspondente, ressalvadas eventuais pendências ou ocorrências expressamente registradas neste documento.',
-      60, doc.y, { width: 430, lineGap: 2 }
+      M.contentLeft, doc.y, { width: M.contentWidth, lineGap: 1.5 }
     );
     doc.restore();
   });
 
-  y = drawSection(doc, y, '6. Responsável pelo Recebimento', (doc) => {
-    drawField(doc, 'Servidor/Responsável:', loan.receivedByNameSnapshot || '—', 60, doc.y, 300);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Data e hora do registro:', loan.returnedAt ? formatDateTime(loan.returnedAt) : '—', 60, doc.y, 300);
+  y = section(doc, y, '6. Responsável pelo Recebimento', (doc) => {
+    fieldRow(doc, [
+      { label: 'Servidor/Responsável:', value: loan.receivedByNameSnapshot || '—' },
+      { label: 'Data/Hora do registro:', value: loan.returnedAt ? formatDateTime(loan.returnedAt) : '—' },
+    ], doc.y);
   });
 
-  y = drawSection(doc, y, '7. Assinaturas', (doc) => {
-    doc.save();
-    doc.fontSize(8).font('Helvetica').fillColor(COLORS.ink);
-
-    doc.text('________________________________', 60, doc.y + 8);
-    doc.fontSize(7).fillColor(COLORS.gray);
-    doc.text('Leitor / Responsável', 60, doc.y + 2);
-    doc.text(loan.readerNameSnapshot || '—', 60, doc.y + 10);
-
-    doc.fontSize(8).fillColor(COLORS.ink);
-    doc.text('________________________________', 300, y + 18);
-    doc.fontSize(7).fillColor(COLORS.gray);
-    doc.text('Servidor responsável pelo recebimento', 300, y + 32);
-    doc.text(loan.receivedByNameSnapshot || '—', 300, y + 42);
-
+  y = section(doc, y, '7. Assinaturas', (doc) => {
+    const sy = doc.y + 6;
+    doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
+    doc.text('________________________________', 60, sy);
+    doc.fontSize(6.5).fillColor(C.gray).text('Leitor / Responsável', 60, doc.y + 1);
+    doc.text(loan.readerNameSnapshot || '—', 60, doc.y + 8);
+    doc.fontSize(7.5).fillColor(C.ink).text('________________________________', 300, sy);
+    doc.fontSize(6.5).fillColor(C.gray).text('Servidor responsável pelo recebimento', 300, doc.y - 19);
+    doc.text(loan.receivedByNameSnapshot || '—', 300, doc.y + 8);
     doc.restore();
-    doc.y = y + 58;
+    doc.y = sy + 40;
   });
 
-  drawFooter(doc, verificationCode, loan.returnedAt || new Date(), loanNumber, loan.receivedByNameSnapshot);
-  drawPageNumber(doc, 1, 1);
-
+  drawFooter(doc, code, loan.returnedAt || new Date(), loanNum, loan.receivedByNameSnapshot);
+  drawPageNum(doc);
   return doc;
 }
