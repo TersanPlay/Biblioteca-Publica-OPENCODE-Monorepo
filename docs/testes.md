@@ -16,7 +16,7 @@ cd backend
 npm run smoke        # npx tsx scripts/smoke.ts
 ```
 
-Cobre **63 casos**, incluindo:
+Cobre **62 casos**, incluindo:
 
 - Login, RBAC (ADMIN × ATTENDANT), token inválido/expirado, rate limit
 - CRUD de livros, autores, categorias, leitores, usuários
@@ -25,7 +25,7 @@ Cobre **63 casos**, incluindo:
 - Áreas de conhecimento (cadastro automático, relação N:N com livros)
 - Empréstimo individual e em lote (limites, livro emprestado/reservado/arquivado, duplicados, prazo futuro, leitor bloqueado/atrasado)
 - Renovação (limite, atrasado, bloqueado, reserva pendente)
-- Devolução e ativação de reserva (`AVAILABLE`)
+- Devolução com condição/observações e ativação de reserva (`AVAILABLE`)
 - Reservas (criação, cancelamento, atendimento, expiração)
 - Relatórios (todos os tipos) e exportação CSV
 - Configurações e auditoria

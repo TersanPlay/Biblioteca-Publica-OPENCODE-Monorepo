@@ -144,14 +144,25 @@ Corpo de criação: `{ name, cpf, birthDate?, phone?, email?, cep?, address?, nu
 | POST | `/api/loans` | Empréstimo de 1 livro |
 | POST | `/api/loans/batch` | Empréstimo de vários livros em transação única |
 | GET | `/api/loans/:id` | Detalhe |
-| POST | `/api/loans/:id/return` | Devolução |
+| POST | `/api/loans/:id/return` | Devolução (opcionalmente com `condition` e `observations`) |
 | POST | `/api/loans/:id/renew` | Renovação |
+| GET | `/api/loans/:id/term` | PDF do Termo de Empréstimo (autenticado via blob) |
+| GET | `/api/loans/:id/return-term` | PDF do Termo de Devolução (autenticado via blob) |
 
 `POST /loans` — corpo: `{ readerId, bookId, dueDate? }`. `POST /loans/batch` — corpo:
 
 ```json
 { "readerId": 7, "bookIds": [12, 34], "dueDate": "2026-09-01" }
 ```
+
+`POST /loans/:id/return` — corpo (opcional):
+
+```json
+{ "condition": "BOM", "observations": "Material sem avarias" }
+```
+
+- `condition`: `BOM`, `REGULAR` ou `DANIFICADO`
+- `observations`: texto livre (até 1000 caracteres)
 
 Regras comuns (falha → `400` sem criar nada):
 - Leitor deve existir e estar `ACTIVE`.
@@ -163,6 +174,12 @@ Regras comuns (falha → `400` sem criar nada):
 - Batch: `bookIds` de 1 a 20; falha de qualquer livro aborta a transação inteira.
 
 Respostas: `201` com o(s) empréstimo(s) completos (com `number` no formato `EMP-000123`, `reader`, `book`, `user`); batch retorna `{ items, count }`.
+
+### Termos PDF
+
+Rotas `GET /loans/:id/term` e `GET /loans/:id/return-term` geram PDFs com `pdfkit`. Requerem autenticação (`Authorization: Bearer <token>`). Frontend busca como blob e abre em nova aba.
+
+O Termo de Empréstimo contém: dados do empréstimo, leitor (snapshots), material bibliográfico, registro do atendimento e assinaturas. O Termo de Devolução contém: situação (prazo/atraso), condição do material, dados do empréstimo original, leitor, material, registro da devolução, responsável e assinaturas.
 
 ## Reservations — autenticação
 

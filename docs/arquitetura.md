@@ -29,6 +29,7 @@ Aplicação web de duas camadas para gestão de biblioteca pública:
 | Banco | SQLite (arquivo `dev.db`), schema em `prisma/schema.prisma` |
 | Validação | Zod 3 (`src/validation.ts`) |
 | Autenticação | JWT (`jsonwebtoken`) + bcryptjs |
+| PDF | `pdfkit` (geração de termos de empréstimo e devolução) |
 | Rate limit | `express-rate-limit` (login e consulta de capa) |
 | Upload | `multer` (restauração de backup por arquivo local) |
 | Cron | `node-cron` (backups automáticos 18:30 e 23:45) |
@@ -71,6 +72,7 @@ backend/
       settings.ts        getSettings() (regras de empréstimo)
       overdue.ts         refreshOverdue(), expireReservations(), computeDueDate()
       cover.ts           Resolução de capa na Amazon (ISBN → capa/dados)
+      terms.ts           Geração de PDFs: Termo de Empréstimo e Termo de Devolução (pdfkit)
     middleware/
       auth.ts            signToken(), requireAuth, requireRoles
       login-rate-limit.ts

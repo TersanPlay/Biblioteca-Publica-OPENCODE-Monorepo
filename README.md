@@ -4,7 +4,7 @@ Sistema web para gestão de biblioteca pública: acervo, leitores, exemplares, e
 
 ## Stack
 
-- **Backend**: Node.js + Express + TypeScript + Prisma ORM + SQLite (preparado para PostgreSQL) + JWT + bcryptjs + multer (upload de backups)
+- **Backend**: Node.js + Express + TypeScript + Prisma ORM + SQLite (preparado para PostgreSQL) + JWT + bcryptjs + multer (upload de backups) + pdfkit (geração de termos PDF)
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + Radix UI + Lucide React + React Router + Axios + React Hook Form + Zod
 - **UI/UX**: metodologia UI Architect ASJ (canvas `#F2F2F0`, primary `#087F8C`, superfícies creme, hairline, motion refinado)
 
@@ -152,6 +152,8 @@ O frontend estará disponível em: **http://localhost:5173**
 | `npm run build` | Compila para produção (verifica tipos + gera `dist/`) |
 | `npm run preview` | Visualiza a build de produção localmente |
 
+> **Nota sobre PDFs**: A geração de Termos de Empréstimo/Devolução é feita no backend via `pdfkit`. Os PDFs são gerados dinamicamente e servidos como blobs autenticados — não há armazenamento de arquivos PDF no servidor.
+
 ---
 
 ## Variáveis de ambiente do Frontend
@@ -223,7 +225,7 @@ Violação de unique constraint. Ex.: tentar cadastrar um livro com ISBN já exi
 
 ## Fluxo MVP validado
 
-Cadastrar livro → cadastrar leitor → realizar empréstimo → acompanhar prazo → registrar devolução → disponibilizar novamente o livro.
+Cadastrar livro → cadastrar leitor → realizar empréstimo → gerar Termo de Empréstimo (PDF) → acompanhar prazo → registrar devolução com condição → gerar Termo de Devolução (PDF) → disponibilizar novamente o livro.
 
 ## Regras de negócio
 
@@ -232,6 +234,7 @@ Cadastrar livro → cadastrar leitor → realizar empréstimo → acompanhar pra
 - Leitor bloqueado ou inativo não realiza nem renova empréstimo
 - Livro indisponível não é emprestado
 - Empréstimo vencido vira ATRASADO automaticamente
+- Snapshots de dados (leitor, livro, usuário) salvos no momento do empréstimo para uso nos Termos PDF
 - Devolução libera o livro e pode ativar reserva aguardando
 - Novo empréstimo aceita vários livros de uma vez, limitado ao que sobra do
   limite do leitor (ativos + selecionados ≤ limite configurado); os empréstimos
@@ -243,7 +246,11 @@ Cadastrar livro → cadastrar leitor → realizar empréstimo → acompanhar pra
 - Áreas de conhecimento: mesmo padrão dos autores (find-or-create, relação N:N)
 - Livros possuem campos expandidos: formato (CAPA/BROCHURA/ESPIRAL), volume, CDD, cutter, localização física, cópias disponíveis, tipo de aquisição
 - Exclusão de leitores com anonimização LGPD (ADMIN apenas): dados pessoais substituídos, empréstimos ativos bloqueiam exclusão
+- Termos de empréstimo/devolução: PDFs gerados dinamicamente com snapshots, acessíveis pelo histórico do leitor
+- Devolução com registro de condição do material (BOM/REGULAR/DANIFICADO) e observações
 - Backups: download de arquivos existentes, restauração a partir de arquivo local do computador
+- Termos de Empréstimo/Devolução: geração de PDFs profissionais com snapshots dos dados, acessíveis pela página do leitor
+- Devolução com condição do material (BOM/REGULAR/DANIFICADO) e observações/ocorrências
 - Toda operação registra o usuário responsável (auditoria)
 
 ## Testes

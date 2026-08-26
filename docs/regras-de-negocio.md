@@ -37,6 +37,12 @@
 6. Número gerado: `EMP-` + id com 6 dígitos (ex.: `EMP-000123`).
 7. Registra auditoria `LOAN_CREATED`.
 
+### Snapshots de dados
+
+No momento da criação do empréstimo, são salvos os dados do leitor, livro e usuário responsáveis como snapshots. Campos: `readerNameSnapshot`, `bookTitleSnapshot`, `bookAuthorSnapshot`, `bookIsbnSnapshot`, `bookNumberSnapshot`, `createdByNameSnapshot`. Esses snapshots são usados nos Termos PDF (documentos de empréstimo/devolução) para preservar o estado dos dados no momento do registro, mesmo que o leitor/livro sejam alterados depois.
+
+Para empréstimos criados antes da implementação dos snapshots, os termos PDF fazem fallback para os dados das relações atuais (reader, book, user).
+
 ### Empréstimo em lote (`POST /loans/batch`)
 
 - 1 a 20 livros por pedido; seleção sem duplicados.
@@ -53,12 +59,14 @@ Bloqueada quando (mensagem específica em cada caso):
 - `renewals ≥ maxRenewals`.
 - Existe reserva ativa (PENDING/AVAILABLE) para o livro.
 
-Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda futura) ou hoje (se vencida). `renewals` incrementa.
+Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda futura) ou hoje (se vencida). `renewals` incrementa. O snapshot do usuário que renovou é salvo em `renewedBySnapshot`.
 
 ## Devolução
 
 - `400` se já devolvida.
 - Marca `RETURNED` e `returnedAt`.
+- Opcionalmente registra `returnCondition` (BOM/REGULAR/DANIFICADO) e `returnObservations`.
+- Snapshot do responsável pela devolução: `receivedByNameSnapshot`.
 - Se houver reserva `PENDING` para o livro (mais antiga), ela vira `AVAILABLE` (aguardando retirada) — ou `EXPIRED` se `expiresAt` já passou.
 
 ## Reserva
@@ -138,3 +146,31 @@ Ações registradas: `LOGIN`, `LOGOUT`, `LOGIN_FAILED`, `USER_CREATED`, `USER_UP
 ## Política anti-dados-mock
 
 O sistema não exibe nem cria dados fictícios em produção: estados vazios reais ("Nenhum livro cadastrado"), sem credenciais demo, sem fallbacks inventados. Apenas fixtures de teste (smoke/CDP) criam dados, marcados como TEST e removidos ao final.
+
+## Termos de Empréstimo/Devolução (PDF)
+
+### Geração
+
+- **Termo de Empréstimo** (`GET /loans/:id/term`): dados do empréstimo, leitor, material bibliográfico, registro do atendimento e assinaturas.
+- **Termo de Devolução** (`GET /loans/:id/return-term`): situação (prazo/atraso), condição do material, dados do empréstimo original, leitor, material, registro da devolução, responsável e assinaturas.
+
+### Layout
+
+- Cabeçalho institucional com ícone BookOpen, nome, endereço, telefone e e-mail da biblioteca.
+- Título centralizado com número do termo destacado.
+- Seções numeradas com bordas sutis e campos em 2-3 colunas.
+- Predominantemente preto/cinza, cor institucional (#087F8C) apenas em pequenos elementos de destaque.
+- Código de verificação (SHA-256 baseado no ID e data) no rodapé.
+- Rodapé: data/hora de geração, número do empréstimo, registrado por.
+- Numeração de páginas.
+
+### Segurança
+
+- Rotas de PDF exigem autenticação (`requireAuth` por rota).
+- Frontend busca o PDF como blob via axios (com token JWT), cria blob URL e abre com `window.open`.
+- Não existem rotas públicas de PDF.
+
+### Disponibilidade
+
+- Botões de documentos na página de detalhes do leitor (`/admin/leitores/:id`), na tabela de histórico de empréstimos.
+- Termo de Devolução só disponível para empréstimos devolvidos (`returnedAt` preenchido).

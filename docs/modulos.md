@@ -21,7 +21,7 @@
 
 ### Helpers de domínio
 
-- `loan.routes.ts` — `assertBookEligible` (validação de livro para empréstimo, reutilizada no empréstimo individual e no lote), `ensureNumber` (gera `EMP-000123`).
+- `loan.routes.ts` — `assertBookEligible` (validação de livro para empréstimo, reutilizada no empréstimo individual e no lote), `ensureNumber` (gera `EMP-000123`), `buildLoanSnapshots` (snapshots de dados do leitor/livro/usuário no momento do empréstimo).
 - `book.routes.ts` — `resolveAuthorNames`, `resolveCategoryNames`, `resolveKnowledgeAreaNames` (find-or-create dentro da transação), `findDuplicateBook`/`duplicateConflict` (ISBN duplicado).
 - `reader.routes.ts` — `DELETE /:id` com anonimização LGPD (substitui dados pessoais, cancela reservas pendentes, bloqueia exclusão se houver empréstimos ativos).
 - `lib/overdue.ts` — `refreshOverdue`, `expireReservations`, `computeDueDate`, `addDays`.
@@ -95,6 +95,8 @@ Instância axios com `baseURL` = `VITE_API_URL || '/api'`; injeta token do `loca
 Uma página por rota (ver tabelas acima), em `pages/public/`, `pages/admin/`, `pages/auth/`.
 
 - `pages/admin/reader-form-dialog.tsx` — componente compartilhado para criação e edição de leitores.
+- `pages/admin/reader-details.tsx` — detalhe do leitor com histórico de empréstimos, botões de documentos PDF (Termo de Empréstimo e Termo de Devolução via blob autenticado).
+- `pages/admin/returns.tsx` — modal de devolução expandido com seletor de condição (BOM/REGULAR/DANIFICADO) e campo de observações/ocorrências.
 - `pages/admin/blocklist.tsx` — lista de leitores bloqueados com busca e desbloqueio em lote.
 
 ### `src/types/api.ts`
