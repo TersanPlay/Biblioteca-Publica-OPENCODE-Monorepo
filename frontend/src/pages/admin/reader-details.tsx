@@ -9,7 +9,7 @@ import { EmptyState } from '../../components/ui/empty-state';
 import { PageSkeleton } from '../../components/ui/skeleton';
 import { ReservationStatusBadge, LoanStatusBadge, ReaderStatusBadge } from '../../components/ui/status-badge';
 import { TD, TH, THead, TR, Table, TBody } from '../../components/ui/table';
-import { readersApi } from '../../features/api';
+import { loansApi, readersApi } from '../../features/api';
 import { useAsyncData } from '../../features/hooks/use-async-data';
 import { useApiToast } from '../../features/toast/toast-provider';
 import { apiErrorMessage } from '../../lib/errors';
@@ -235,7 +235,7 @@ export function ReaderDetailsPage() {
                           size="sm"
                           variant="secondary"
                           title="Termo de Empréstimo"
-                          onClick={() => window.open(`${import.meta.env.VITE_API_URL || ''}/api/loans/${l.id}/term`, '_blank')}
+                          onClick={() => loansApi.openTerm(l.id)}
                         >
                           <FileText className="size-3.5" />
                         </Button>
@@ -244,7 +244,7 @@ export function ReaderDetailsPage() {
                             size="sm"
                             variant="secondary"
                             title="Termo de Devolução"
-                            onClick={() => window.open(`${import.meta.env.VITE_API_URL || ''}/api/loans/${l.id}/return-term`, '_blank')}
+                            onClick={() => loansApi.openReturnTerm(l.id)}
                           >
                             <FileText className="size-3.5 text-success" />
                           </Button>
