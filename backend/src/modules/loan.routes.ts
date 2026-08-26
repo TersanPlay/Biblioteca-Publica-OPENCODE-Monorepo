@@ -375,7 +375,7 @@ loanRouter.get(
     const settings = await getSettings();
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="termo-emprestimo-${loan.number || `EMP-${String(loan.id).padStart(6, '0')}`}.pdf"`);
-    const doc = generateLoanTermPDF(loan, settings.libraryName);
+    const doc = generateLoanTermPDF(loan, settings);
     doc.pipe(res);
     doc.end();
   }),
@@ -391,7 +391,7 @@ loanRouter.get(
     const settings = await getSettings();
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="termo-devolucao-DEV-${String(loan.id).padStart(6, '0')}.pdf"`);
-    const doc = generateReturnTermPDF(loan, settings.libraryName);
+    const doc = generateReturnTermPDF(loan, settings);
     doc.pipe(res);
     doc.end();
   }),
