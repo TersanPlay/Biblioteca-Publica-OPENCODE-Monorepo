@@ -146,6 +146,17 @@ model Loan {
   renewals   Int        @default(0)
   notes      String?
   status     String     @default("ACTIVE")
+
+  readerNameSnapshot     String?
+  bookTitleSnapshot      String?
+  bookAuthorSnapshot     String?
+  bookIsbnSnapshot       String?
+  bookNumberSnapshot     String?
+  createdByNameSnapshot  String?
+  returnCondition        String?
+  returnObservations     String?
+  receivedByNameSnapshot String?
+
   reader     Reader     @relation(fields: [readerId], references: [id])
   book       Book       @relation(fields: [bookId], references: [id])
   user       User       @relation(fields: [userId], references: [id])
