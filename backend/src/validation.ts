@@ -193,6 +193,11 @@ export const loanBatchCreateSchema = z.object({
   dueDate: dateStrOpt,
 });
 
+export const loanReturnSchema = z.object({
+  condition: z.enum(['BOM', 'REGULAR', 'DANIFICADO']).optional(),
+  observations: z.string().trim().max(500).optional(),
+});
+
 export const reservationCreateSchema = z.object({
   readerId: z.number().int(),
   bookId: z.number().int(),

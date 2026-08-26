@@ -7,7 +7,7 @@ import { requireAuth } from '../middleware/auth';
 import { writeAudit } from '../lib/audit';
 import { computeDueDate, expireReservations, refreshOverdue } from '../lib/overdue';
 import { getSettings } from '../lib/settings';
-import { dateOrNull, loanBatchCreateSchema, loanCreateSchema, loanQuerySchema, parse } from '../validation';
+import { dateOrNull, loanBatchCreateSchema, loanCreateSchema, loanQuerySchema, loanReturnSchema, parse } from '../validation';
 
 export const loanRouter = Router();
 
@@ -42,6 +42,34 @@ async function assertBookEligible(
   });
   if (reservation) throw new HttpError(400, `"${book.title}" possui reserva aguardando por outro leitor`);
   return { id: book.id, title: book.title };
+}
+
+async function buildLoanSnapshots(
+  tx: Prisma.TransactionClient,
+  readerId: number,
+  bookId: number,
+  userId: number,
+) {
+  const [reader, book, user] = await Promise.all([
+    tx.reader.findUnique({ where: { id: readerId }, select: { name: true } }),
+    tx.book.findUnique({ where: { id: bookId }, select: { id: true, title: true, isbn10: true, isbn13: true } }),
+    tx.user.findUnique({ where: { id: userId }, select: { name: true } }),
+  ]);
+
+  let authorSnapshot: string | null = null;
+  const bookAuthors = await tx.bookAuthor.findMany({ where: { bookId }, include: { author: { select: { name: true } } } });
+  if (bookAuthors.length > 0) {
+    authorSnapshot = bookAuthors.map((ba) => ba.author.name).join(', ');
+  }
+
+  return {
+    readerNameSnapshot: reader?.name ?? null,
+    bookTitleSnapshot: book?.title ?? null,
+    bookAuthorSnapshot: authorSnapshot,
+    bookIsbnSnapshot: book?.isbn13 ?? book?.isbn10 ?? null,
+    bookNumberSnapshot: String(book?.id ?? bookId),
+    createdByNameSnapshot: user?.name ?? null,
+  };
 }
 
 loanRouter.get(
@@ -147,8 +175,10 @@ loanRouter.post(
         : computeDueDate(loanDate, settings.defaultLoanDays);
       if (dueDate.getTime() <= loanDate.getTime()) throw new HttpError(400, 'Prazo de devolução deve ser futuro');
 
+      const snapshots = await buildLoanSnapshots(tx, reader.id, data.bookId, userId);
+
       const created = await tx.loan.create({
-        data: { readerId: reader.id, bookId: data.bookId, userId, dueDate, status: 'ACTIVE' },
+        data: { readerId: reader.id, bookId: data.bookId, userId, dueDate, status: 'ACTIVE', ...snapshots },
       });
       const number = await ensureNumber(created.id, tx);
       return { loan: created, number };
@@ -202,8 +232,9 @@ loanRouter.post(
       const loans: { id: number; number: string; bookId: number }[] = [];
       for (const bookId of bookIds) {
         await assertBookEligible(tx, bookId, reader.id);
+        const snapshots = await buildLoanSnapshots(tx, reader.id, bookId, userId);
         const createdLoan = await tx.loan.create({
-          data: { readerId: reader.id, bookId, userId, dueDate, status: 'ACTIVE' },
+          data: { readerId: reader.id, bookId, userId, dueDate, status: 'ACTIVE', ...snapshots },
         });
         const number = await ensureNumber(createdLoan.id, tx);
         loans.push({ id: createdLoan.id, number, bookId });
@@ -238,13 +269,20 @@ loanRouter.post(
   '/:id/return',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+    const data = req.body && Object.keys(req.body).length > 0 ? parse(loanReturnSchema, req.body) : {};
     const loan = await prisma.loan.findUnique({ where: { id } });
     if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
     if (loan.returnedAt) throw new HttpError(400, 'Empréstimo já devolvido');
 
     const returned = await prisma.loan.update({
       where: { id },
-      data: { returnedAt: new Date(), status: 'RETURNED' },
+      data: {
+        returnedAt: new Date(),
+        status: 'RETURNED',
+        returnCondition: data.condition ?? null,
+        returnObservations: data.observations ?? null,
+        receivedByNameSnapshot: req.user!.name,
+      },
     });
 
     const pending = await prisma.reservation.findFirst({
