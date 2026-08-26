@@ -1,18 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { Ban, CheckCircle2, Plus, Search, UserRound } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
-import {
-  Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader,
-} from '../../components/ui/dialog';
 import { EmptyState } from '../../components/ui/empty-state';
-import { Label } from '../../components/ui/form-field';
-import { Input } from '../../components/ui/input';
 import { PageHeader } from '../../components/ui/page-header';
 import { Pagination } from '../../components/ui/pagination';
 import { NativeSelect } from '../../components/ui/select';
@@ -24,24 +16,9 @@ import { useAsyncData } from '../../features/hooks/use-async-data';
 import { useDebounce } from '../../features/hooks/use-debounce';
 import { useApiToast } from '../../features/toast/toast-provider';
 import { apiErrorMessage } from '../../lib/errors';
-import { formatCPF, formatDate, formatPhone, onlyDigits } from '../../lib/format';
+import { formatCPF, formatDate, formatPhone } from '../../lib/format';
 import type { Reader } from '../../types/api';
-
-const schema = z.object({
-  name: z.string().min(2, 'Nome é obrigatório'),
-  cpf: z
-    .string()
-    .refine((v) => onlyDigits(v).length === 11, 'CPF deve ter 11 dígitos'),
-  birthDate: z.string(),
-  phone: z.string(),
-  email: z.string().email('E-mail inválido').or(z.literal('')),
-  cep: z.string(),
-  address: z.string(),
-  number: z.string(),
-  neighborhood: z.string(),
-  city: z.string(),
-  state: z.string(),
-});
+import { ReaderFormDialog } from './reader-form-dialog';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos os status' },
@@ -67,48 +44,7 @@ export function ReadersPage() {
   const [busy, setBusy] = useState(false);
   const { toast } = useApiToast();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: '', cpf: '', birthDate: '', phone: '', email: '',
-      cep: '', address: '', number: '', neighborhood: '', city: '', state: '',
-    },
-  });
-
-  const openNew = () => {
-    reset({
-      name: '', cpf: '', birthDate: '', phone: '', email: '',
-      cep: '', address: '', number: '', neighborhood: '', city: '', state: '',
-    });
-    setDialogOpen(true);
-  };
-
-  const submit = async (v: z.infer<typeof schema>) => {
-    setBusy(true);
-    try {
-      const payload = {
-        name: v.name,
-        cpf: onlyDigits(v.cpf),
-        birthDate: v.birthDate || undefined,
-        phone: v.phone || undefined,
-        email: v.email || undefined,
-        cep: v.cep ? onlyDigits(v.cep) : undefined,
-        address: v.address || undefined,
-        number: v.number || undefined,
-        neighborhood: v.neighborhood || undefined,
-        city: v.city || undefined,
-        state: v.state || undefined,
-      };
-      await readersApi.create(payload);
-      toast.success('Leitor cadastrado');
-      setDialogOpen(false);
-      refetch();
-    } catch (err) {
-      toast.error('Não foi possível cadastrar', apiErrorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const openNew = () => setDialogOpen(true);
 
   return (
     <div className="space-y-5">
@@ -249,70 +185,7 @@ export function ReadersPage() {
         )
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent size="lg">
-          <DialogHeader title="Novo leitor" description="Dados de identificação e contato." />
-          <form onSubmit={handleSubmit(submit)}>
-            <DialogBody>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <Label>Nome completo *</Label>
-                  <Input placeholder="Maria da Silva" error={errors.name?.message} {...register('name')} />
-                </div>
-                <div>
-                  <Label>CPF *</Label>
-                  <Input
-                    placeholder="123.456.789-00"
-                    error={errors.cpf?.message}
-                    inputMode="numeric"
-                    {...register('cpf')}
-                  />
-                </div>
-                <div>
-                  <Label>Data de nascimento</Label>
-                  <Input type="date" {...register('birthDate')} />
-                </div>
-                <div>
-                  <Label>Telefone</Label>
-                  <Input placeholder="(11) 99999-9999" {...register('phone')} />
-                </div>
-                <div>
-                  <Label>E-mail</Label>
-                  <Input type="email" placeholder="maria@email.com" error={errors.email?.message} {...register('email')} />
-                </div>
-                <div>
-                  <Label>CEP</Label>
-                  <Input placeholder="01234-000" {...register('cep')} />
-                </div>
-                <div>
-                  <Label>Estado</Label>
-                  <Input placeholder="SP" {...register('state')} />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label>Endereço</Label>
-                  <Input placeholder="Rua das Flores, 100" {...register('address')} />
-                </div>
-                <div>
-                  <Label>Número</Label>
-                  <Input placeholder="100" {...register('number')} />
-                </div>
-                <div>
-                  <Label>Bairro</Label>
-                  <Input placeholder="Centro" {...register('neighborhood')} />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label>Cidade</Label>
-                  <Input placeholder="São Paulo" {...register('city')} />
-                </div>
-              </div>
-            </DialogBody>
-            <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit" loading={busy}>Cadastrar</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ReaderFormDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => refetch()} />
 
       <ConfirmDialog
         open={!!blocking}

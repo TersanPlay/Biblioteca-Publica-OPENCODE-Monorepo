@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, CheckCircle2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
+import { ArrowLeft, Ban, CheckCircle2, Mail, MapPin, Pencil, Phone, UserCheck, UserRound, UserX } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
@@ -13,13 +13,28 @@ import { useAsyncData } from '../../features/hooks/use-async-data';
 import { useApiToast } from '../../features/toast/toast-provider';
 import { apiErrorMessage } from '../../lib/errors';
 import { formatCPF, formatDate, formatPhone } from '../../lib/format';
+import { ReaderFormDialog } from './reader-form-dialog';
+
+type ConfirmKind = 'none' | 'block' | 'unblock' | 'deactivate' | 'activate';
+
+const CONFIRM_TEXTS = {
+  block: { title: 'Bloquear leitor', label: 'Bloquear', destructive: true },
+  unblock: { title: 'Desbloquear leitor', label: 'Desbloquear', destructive: false },
+  deactivate: {
+    title: 'Desativar leitor',
+    label: 'Desativar',
+    destructive: true,
+  },
+  activate: { title: 'Ativar leitor', label: 'Ativar', destructive: false },
+} as const;
 
 export function ReaderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const readerId = Number(id);
   const fetcher = useCallback(() => readersApi.get(readerId), [readerId]);
   const { data, error, loading, refetch } = useAsyncData(fetcher, [readerId]);
-  const [confirming, setConfirming] = useState<{ kind: 'none' | 'block' | 'unblock' }>({ kind: 'none' });
+  const [confirming, setConfirming] = useState<{ kind: ConfirmKind }>({ kind: 'none' });
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [blockCategory, setBlockCategory] = useState<string>('ATRASO_REPETIDO');
   const [blockReason, setBlockReason] = useState('');
@@ -49,6 +64,22 @@ export function ReaderDetailsPage() {
       setConfirming({ kind: 'none' });
       setBlockReason('');
       setBlockCategory('ATRASO_REPETIDO');
+      refetch();
+    } catch (err) {
+      toast.error('Não foi possível concluir', apiErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleStatus = async () => {
+    if (!reader) return;
+    setBusy(true);
+    try {
+      const next = reader.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+      await readersApi.setStatus(reader.id, next);
+      toast.success(next === 'ACTIVE' ? 'Leitor ativado' : 'Leitor desativado');
+      setConfirming({ kind: 'none' });
       refetch();
     } catch (err) {
       toast.error('Não foi possível concluir', apiErrorMessage(err));
@@ -93,13 +124,25 @@ export function ReaderDetailsPage() {
                 Novo empréstimo
               </Button>
             </Link>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Pencil className="size-4" /> Editar
+            </Button>
             {reader.status === 'BLOCKED' ? (
               <Button variant="secondary" onClick={() => setConfirming({ kind: 'unblock' })}>
                 <CheckCircle2 className="size-4 text-success" /> Desbloquear
               </Button>
-            ) : (
+            ) : reader.status === 'ACTIVE' ? (
               <Button variant="secondary" onClick={() => setConfirming({ kind: 'block' })}>
                 <Ban className="size-4 text-destructive" /> Bloquear
+              </Button>
+            ) : null}
+            {reader.status === 'INACTIVE' ? (
+              <Button variant="secondary" onClick={() => setConfirming({ kind: 'activate' })}>
+                <UserCheck className="size-4 text-success" /> Ativar
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => setConfirming({ kind: 'deactivate' })}>
+                <UserX className="size-4 text-destructive" /> Desativar
               </Button>
             )}
           </div>
@@ -198,19 +241,32 @@ export function ReaderDetailsPage() {
         </CardContent>
       </Card>
 
+      <ReaderFormDialog
+        open={editing}
+        onOpenChange={setEditing}
+        reader={reader}
+        onSaved={() => refetch()}
+      />
+
       <ConfirmDialog
         open={confirming.kind !== 'none'}
         onOpenChange={(o) => !o && setConfirming({ kind: 'none' })}
-        title={confirming.kind === 'block' ? 'Bloquear leitor' : 'Desbloquear leitor'}
+        title={confirming.kind !== 'none' ? CONFIRM_TEXTS[confirming.kind].title : ''}
         description={
           confirming.kind === 'block'
             ? `${reader.name} não poderá realizar novos empréstimos até ser desbloqueado.`
-            : `${reader.name} voltará a poder realizar empréstimos.`
+            : confirming.kind === 'unblock'
+              ? `${reader.name} voltará a poder realizar empréstimos.`
+              : confirming.kind === 'deactivate'
+                ? `${reader.name} ficará inativo e não poderá realizar novos empréstimos. O histórico será preservado.`
+                : `${reader.name} voltará ao status ativo e poderá realizar empréstimos.`
         }
-        confirmLabel={confirming.kind === 'block' ? 'Bloquear' : 'Desbloquear'}
-        destructive={confirming.kind === 'block'}
+        confirmLabel={
+          confirming.kind === 'none' ? '' : CONFIRM_TEXTS[confirming.kind].label
+        }
+        destructive={confirming.kind !== 'none' && CONFIRM_TEXTS[confirming.kind].destructive}
         loading={busy}
-        onConfirm={toggleBlock}
+        onConfirm={confirming.kind === 'block' || confirming.kind === 'unblock' ? toggleBlock : toggleStatus}
       >
         {confirming.kind === 'block' && (
           <div className="space-y-3 py-2">

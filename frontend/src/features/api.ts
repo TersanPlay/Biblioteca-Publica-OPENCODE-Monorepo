@@ -139,6 +139,8 @@ export const readersApi = {
     api.patch<Reader>(`/readers/${id}/status`, { status: 'ACTIVE' }).then((r) => r.data),
   unblockBatch: (ids: number[]) =>
     Promise.all(ids.map((id) => api.patch(`/readers/${id}/status`, { status: 'ACTIVE' }))),
+  setStatus: (id: number, status: 'ACTIVE' | 'INACTIVE') =>
+    api.patch<Reader>(`/readers/${id}/status`, { status }).then((r) => r.data),
   blocked: (params?: Params) =>
     api.get<Paginated<BlockedReader>>('/readers/blocked', { params }).then((r) => r.data),
 };
