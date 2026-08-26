@@ -30,6 +30,7 @@ Aplicação web de duas camadas para gestão de biblioteca pública:
 | Validação | Zod 3 (`src/validation.ts`) |
 | Autenticação | JWT (`jsonwebtoken`) + bcryptjs |
 | Rate limit | `express-rate-limit` (login e consulta de capa) |
+| Upload | `multer` (restauração de backup por arquivo local) |
 | Cron | `node-cron` (backups automáticos 18:30 e 23:45) |
 
 ### Frontend (`frontend/`)
@@ -55,8 +56,10 @@ backend/
     schema.prisma        Modelos do banco
     seed.ts              Bootstrap estrutural (config + admin via env)
   scripts/
-    smoke.ts             Suite E2E via API (58 casos)
+    smoke.ts             Suite E2E via API (63 casos)
+    import-books.ts      Importação de livros de planilha
     dedupe-books.ts      Utilitário de deduplicação de ISBN
+    delete-reader-e2e.ts E2E de exclusão de leitor
   src/
     server.ts            Bootstrap HTTP
     app.ts               Montagem dos routers, CORS, handlers de erro
@@ -82,10 +85,11 @@ frontend/
     app/router/          Rotas (routes.tsx) e guardas (guards.tsx)
     components/
       layout/            AdminLayout, PublicLayout
-      ui/                Botões, badges, dialogs, toast, spinners...
+      ui/                Botões, badges, dialogs (ConfirmDialog), toast, spinners...
     features/
-      api.ts             Clientes por entidade (booksApi, loansApi, ...)
+      api.ts             Clientes por entidade (booksApi, loansApi, readersApi, backupsApi, ...)
       auth/              auth-provider (login/logout, sessão)
+      hooks/             use-async-data (carregamento genérico com loading/error/refetch)
     pages/               Páginas públicas e do admin (ver docs/modulos.md)
     services/
       axios.ts           Instância axios + interceptor JWT + logout em 401
@@ -116,14 +120,14 @@ frontend/
 | Papel | Acesso |
 |---|---|
 | `ADMIN` | Tudo: dashboard, livros, empréstimos, devoluções, reservas, leitores, autores, categorias, relatórios, usuários, configurações, auditoria, backup |
-| `ATTENDANT` | Dashboard, livros, empréstimos, devoluções, reservas, leitores, autores (consulta/criação) — **sem** usuários, relatórios, configurações, auditoria, categorias (escrita), backup |
+| `ATTENDANT` | Dashboard, livros, empréstimos, devoluções, reservas, leitores, autores (consulta/criação), blocklist — **sem** usuários, relatórios, configurações, auditoria, categorias (escrita), backup |
 
-Aplicação no backend: `requireRoles('ADMIN')` em users, categories (escrita), reports, audit, settings (PUT). No frontend: guarda `RequireAdmin` envolve essas rotas.
+Aplicação no backend: `requireRoles('ADMIN')` em users, categories (escrita), reports, audit, settings (PUT), reader DELETE. No frontend: guarda `RequireAdmin` envolve essas rotas.
 
 ## Auditoria
 
 - `writeAudit(userId, action, entity, entityId, metadata, ip)` grava em `AuditLog`; falha de escrita não derruba a operação (log de erro).
-- Ações registradas: `LOGIN`, `LOGOUT`, `LOGIN_FAILED`, `USER_CREATED`, `USER_UPDATED`, `USER_PASSWORD_RESET`, `BOOK_CREATED`, `BOOK_UPDATED`, `BOOK_ARCHIVED`, `BOOK_RESTORED`, `AUTHOR_CREATED`, `AUTHOR_UPDATED`, `AUTHOR_ACTIVATED`, `AUTHOR_INACTIVATED`, `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_STATUS_CHANGED`, `READER_CREATED`, `READER_UPDATED`, `READER_STATUS_CHANGED`, `LOAN_CREATED`, `LOAN_RETURNED`, `LOAN_RENEWED`, `RESERVATION_CREATED`, `RESERVATION_CANCELLED`, `RESERVATION_FULFILLED`, `SETTINGS_UPDATED`.
+- Ações registradas: `LOGIN`, `LOGOUT`, `LOGIN_FAILED`, `USER_CREATED`, `USER_UPDATED`, `USER_PASSWORD_RESET`, `BOOK_CREATED`, `BOOK_UPDATED`, `BOOK_ARCHIVED`, `BOOK_RESTORED`, `AUTHOR_CREATED`, `AUTHOR_UPDATED`, `AUTHOR_ACTIVATED`, `AUTHOR_INACTIVATED`, `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_STATUS_CHANGED`, `READER_CREATED`, `READER_UPDATED`, `READER_STATUS_CHANGED`, `READER_DELETED`, `LOAN_CREATED`, `LOAN_RETURNED`, `LOAN_RENEWED`, `RESERVATION_CREATED`, `RESERVATION_CANCELLED`, `RESERVATION_FULFILLED`, `SETTINGS_UPDATED`.
 - Consulta: `GET /api/audit` (ADMIN) com filtros por ação, usuário e período.
 
 ## Backups
@@ -132,7 +136,11 @@ Aplicação no backend: `requireRoles('ADMIN')` em users, categories (escrita), 
 - Mecanismo: `VACUUM INTO` (SQLite 3.27+) — seguro com escritas concorrentes.
 - Armazenamento: `backend/backups/` com arquivos `backup_YYYY-MM-DD_HH-mm.sqlite`.
 - Rotação: mantém apenas os 5 backups mais recentes; os antigos são deletados automaticamente.
-- Restauração: `POST /api/backups/:filename/restore` copia o arquivo sobre `dev.db` (requer restart do servidor).
+- Download: `GET /api/backups/:filename/download` — stream do arquivo via `res.download`.
+- Upload: `POST /api/backups/restore-upload` — multipart via `multer` (campo `file`, `.sqlite`/`.db`, máx. 100 MB). Storage temporário em `backups/.tmp/`.
+- Restauração do servidor: `POST /api/backups/:filename/restore` — copia o arquivo sobre `dev.db`.
+- Restauração local: copia o arquivo enviado sobre `dev.db` (requer restart do servidor).
+- Extensão validada: regex no filename, `multer` fileFilter no upload.
 - Endpoints protegidos: `requireAuth` + `requireRoles('ADMIN')` em todas as rotas.
 
 ## Rate limits
@@ -193,3 +201,4 @@ VITE_API_URL=http://localhost:3333/api   # opcional; padrão '/api' (proxy)
 - Buscas textuais no SQLite (Prisma `contains`) são case-sensitive: CPF, números e títulos devem ser digitados conforme cadastrados.
 - Senhas com bcryptjs (compatível com bcrypt, sem dependência nativa no Windows).
 - Comparação de nomes de autores para reaproveitamento é case-insensitive e feita em memória (o SQLite não suporta filtro `mode: 'insensitive'` no Prisma).
+- SQLite não suporta enums do Prisma: campos como `format` e `acquisitionType` são validados por Zod na borda da API e armazenados como String.

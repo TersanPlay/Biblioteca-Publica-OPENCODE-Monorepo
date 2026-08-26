@@ -9,7 +9,8 @@
 | Books | `book.routes.ts` | `/api/books` | leitura pública; escrita com auth |
 | Authors | `author.routes.ts` | `/api/authors` | auth |
 | Categories | `category.routes.ts` | `/api/categories` | leitura pública; escrita ADMIN |
-| Readers | `reader.routes.ts` | `/api/readers` | auth |
+| Knowledge Areas | `knowledge-area.routes.ts` | `/api/knowledge-areas` | leitura pública |
+| Readers | `reader.routes.ts` | `/api/readers` | auth (DELETE: ADMIN) |
 | Loans | `loan.routes.ts` | `/api/loans` | auth |
 | Reservations | `reservation.routes.ts` | `/api/reservations` | auth |
 | Reports | `report.routes.ts` | `/api/reports` | ADMIN |
@@ -21,12 +22,13 @@
 ### Helpers de domínio
 
 - `loan.routes.ts` — `assertBookEligible` (validação de livro para empréstimo, reutilizada no empréstimo individual e no lote), `ensureNumber` (gera `EMP-000123`).
-- `book.routes.ts` — `resolveAuthorNames` (find-or-create de autores dentro da transação), `findDuplicateBook`/`duplicateConflict` (ISBN duplicado).
+- `book.routes.ts` — `resolveAuthorNames`, `resolveCategoryNames`, `resolveKnowledgeAreaNames` (find-or-create dentro da transação), `findDuplicateBook`/`duplicateConflict` (ISBN duplicado).
+- `reader.routes.ts` — `DELETE /:id` com anonimização LGPD (substitui dados pessoais, cancela reservas pendentes, bloqueia exclusão se houver empréstimos ativos).
 - `lib/overdue.ts` — `refreshOverdue`, `expireReservations`, `computeDueDate`, `addDays`.
 - `lib/settings.ts` — `getSettings()` (regras + dados institucionais; defaults estruturais sem dados de demonstração).
 - `lib/cover.ts` — `resolveAmazonCover` (scrap da Amazon por ISBN), `isbn13To10`.
 - `lib/audit.ts` — `writeAudit`.
-- `backup.routes.ts` — `createBackup` (VACUUM INTO), `rotateBackups` (mantém 5), `startBackupCrons` (18:30 e 23:45).
+- `backup.routes.ts` — `createBackup` (VACUUM INTO), `rotateBackups` (mantém 5), `startBackupCrons` (18:30 e 23:45), download e upload via multer.
 
 ## Frontend — rotas (`src/app/router/routes.tsx`)
 
@@ -37,6 +39,7 @@
 | `/` | Home |
 | `/catalogo` | Catálogo de livros (busca, categoria, disponibilidade) |
 | `/livros/:id` | Detalhe do livro público |
+| `/arquitetura` | Arquitetura do sistema (visão geral, stack, estrutura, fluxo de dados) |
 
 ### Autenticadas (guarda `RequireAuth` + `AdminLayout`)
 
@@ -44,21 +47,23 @@
 |---|---|---|
 | `/admin` | Dashboard (métricas, empréstimos recentes, devoluções, atrasados, top livros) | — |
 | `/admin/livros` | Lista de livros | — |
-| `/admin/livros/novo` | Formulário de livro (com capa por ISBN, autores por vírgula) | — |
+| `/admin/livros/novo` | Formulário de livro (com capa por ISBN, autores por vírgula, áreas de conhecimento) | — |
 | `/admin/livros/:id/editar` | Formulário de livro (edição) | — |
 | `/admin/emprestimos` | Lista de empréstimos | — |
 | `/admin/emprestimos/novo` | Novo empréstimo (1 ou vários livros) | — |
 | `/admin/devolucoes` | Devolução (busca rápida por número/leitor/livro) | — |
 | `/admin/reservas` | Reservas (cancelar/atender) | — |
 | `/admin/leitores` | Lista de leitores | — |
-| `/admin/leitores/:id` | Detalhe do leitor (bloquear/desbloquear, histórico) | — |
+| `/admin/leitores/novo` | Formulário de leitor (criação) | — |
+| `/admin/leitores/:id` | Detalhe do leitor (editar, bloquear/desbloquear, excluir, histórico) | — |
+| `/admin/blocklist` | Lista de leitores bloqueados (busca, desbloqueio em lote) | — |
 | `/admin/autores` | Autores | `RequireAdmin` |
 | `/admin/categorias` | Categorias | `RequireAdmin` |
 | `/admin/relatorios` | Relatórios (9 tipos + exportar CSV) | `RequireAdmin` |
 | `/admin/usuarios` | Usuários do sistema | `RequireAdmin` |
 | `/admin/configuracoes` | Configurações (limites + dados institucionais) | `RequireAdmin` |
 | `/admin/auditoria` | Trilha de auditoria | `RequireAdmin` |
-| `/admin/backup` | Backup & Restauração | `RequireAdmin` |
+| `/admin/backup` | Backup & Restauração (download, upload, criar, restaurar, excluir) | `RequireAdmin` |
 
 ### Outras
 
@@ -78,15 +83,19 @@
 Instância axios com `baseURL` = `VITE_API_URL || '/api'`; injeta token do `localStorage` (`livraria_token`) e, em resposta `401` (fora do login), limpa o token e emite `auth:unauthorized` para desconectar a sessão.
 
 ### `src/features/`
-- `api.ts` — clientes por entidade: `booksApi`, `authorsApi`, `categoriesApi`, `readersApi`, `loansApi` (inclui `createBatch`), `reservationsApi`, `reportsApi`, `usersApi`, `auditApi`, `settingsApi`, `dashboardApi`, `backupsApi`. Payloads limpos (campos vazios removidos); livro converte `BookFormValues` → `{ authorIds, authorNames }`.
+- `api.ts` — clientes por entidade: `booksApi`, `authorsApi`, `categoriesApi`, `knowledgeAreasApi`, `readersApi` (inclui `block`, `unblock`, `unblockBatch`, `setStatus`, `remove`, `blocked`), `loansApi` (inclui `createBatch`), `reservationsApi`, `reportsApi`, `usersApi`, `auditApi`, `settingsApi`, `dashboardApi`, `backupsApi` (inclui `download`, `restoreUpload`). Payloads limpos (campos vazios removidos); livro converte `BookFormValues` → `{ authorIds, authorNames, categoryIds, categoryNames, knowledgeAreaIds, knowledgeAreaNames }`.
 - `auth/auth-provider.tsx` — estado de sessão (login/logout, persistência do token).
+- `hooks/use-async-data.ts` — hook genérico para carregamento de dados com loading/error/refetch.
 
 ### `src/components/`
 - `layout/admin-layout.tsx`, `layout/public-layout.tsx`.
-- `ui/` — botões, badges de status (empréstimo, leitor, reserva), dialogs, selects, tabs, switch, toast, spinners.
+- `ui/` — botões, badges de status (empréstimo, leitor, reserva), dialogs (inclui `ConfirmDialog` com `confirmDisabled`), selects, tabs, switch, toast, spinners, skeleton.
 
 ### `src/pages/`
 Uma página por rota (ver tabelas acima), em `pages/public/`, `pages/admin/`, `pages/auth/`.
 
+- `pages/admin/reader-form-dialog.tsx` — componente compartilhado para criação e edição de leitores.
+- `pages/admin/blocklist.tsx` — lista de leitores bloqueados com busca e desbloqueio em lote.
+
 ### `src/types/api.ts`
-Tipos das entidades (`Book`, `Loan`, `Reader`, `Reservation`, `User`, `Category`, `Author`, `AuditLog`, `ReportResult`, `LibrarySettings`, `DashboardData`, `Backup`, `Paginated<T>` etc.).
+Tipos das entidades (`Book`, `Loan`, `Reader`, `ReaderDetail`, `BlockedReader`, `Reservation`, `User`, `Category`, `Author`, `KnowledgeArea`, `AuditLog`, `ReportResult`, `LibrarySettings`, `DashboardData`, `Backup`, `Paginated<T>` etc.).

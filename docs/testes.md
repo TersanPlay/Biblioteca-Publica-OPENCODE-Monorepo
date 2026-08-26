@@ -16,19 +16,26 @@ cd backend
 npm run smoke        # npx tsx scripts/smoke.ts
 ```
 
-Cobre **58 casos**, incluindo:
+Cobre **63 casos**, incluindo:
 
 - Login, RBAC (ADMIN × ATTENDANT), token inválido/expirado, rate limit
 - CRUD de livros, autores, categorias, leitores, usuários
 - ISBN (validação, duplicado → 409, normalize)
+- Campos expandidos do livro (format, volume, cdd, cutter, physicalLocation, availableCopies, acquisitionType)
+- Áreas de conhecimento (cadastro automático, relação N:N com livros)
 - Empréstimo individual e em lote (limites, livro emprestado/reservado/arquivado, duplicados, prazo futuro, leitor bloqueado/atrasado)
 - Renovação (limite, atrasado, bloqueado, reserva pendente)
 - Devolução e ativação de reserva (`AVAILABLE`)
 - Reservas (criação, cancelamento, atendimento, expiração)
 - Relatórios (todos os tipos) e exportação CSV
 - Configurações e auditoria
+- Exclusão de leitor com anonimização LGPD
 
 As fixtures são criadas com nomes/emails marcados como `TEST` e removidas no `finally` de cada caso — ao final, o banco volta ao estado anterior.
+
+## Testes específicos de funcionalidade
+
+- `scripts/delete-reader-e2e.ts` — 15 casos de exclusão de leitor (anonimização, bloqueio com empréstimos ativos, cancelamento de reservas, auditoria).
 
 ## Typecheck
 

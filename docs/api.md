@@ -50,12 +50,12 @@ Público para leitura; escrita exige autenticação.
 | GET | `/api/books/cover` | — | Busca capa/dados na Amazon por ISBN. Rate limit: 30/15 min. `404` se não achar |
 | GET | `/api/books/exists` | ✅ | Verifica ISBN cadastrado: `?isbn=&exclude=` → `{ book }` ou `{ book: null }` |
 | GET | `/api/books/:id` | — | Detalhe + últimos 10 empréstimos + `hasActiveLoan` |
-| POST | `/api/books` | ✅ | Cria livro (autores e categorias por nome inclusos) |
-| PUT | `/api/books/:id` | ✅ | Atualiza livro (autores e categorias reatribuídos) |
+| POST | `/api/books` | ✅ | Cria livro (autores, categorias e áreas de conhecimento por nome inclusos) |
+| PUT | `/api/books/:id` | ✅ | Atualiza livro (autores, categorias e áreas de conhecimento reatribuídos) |
 | DELETE | `/api/books/:id` | ✅ | Arquiva (soft delete): `{ ok, isArchived: true }` |
 | PATCH | `/api/books/:id/restore` | ✅ | Desarquiva: `{ ok, isArchived: false }` |
 
-Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `categoryId`, `availability` (`available`/`unavailable`), `sort` (`newest` [padrão]/`oldest`/`title`), `includeArchived` (bool).
+Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `categoryId`, `availability` (`available`/`unavailable`), `format` (`CAPA`/`BROCHURA`/`ESPIRAL`), `sort` (`newest` [padrão]/`oldest`/`title`), `includeArchived` (bool).
 
 `POST/PUT /books` — corpo:
 
@@ -72,19 +72,36 @@ Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `ca
   "language": "pt-BR",
   "pages": 256,
   "coverUrl": null,
+  "format": "CAPA",
+  "volume": "Vol. 1",
+  "cdd": "869.9",
+  "cutter": "M338d",
+  "physicalLocation": "Estante A",
+  "availableCopies": 3,
+  "acquisitionType": "COMPRA",
   "categoryIds": [3],
   "categoryNames": ["Ficção científica"],
   "authorIds": [1, 2],
-  "authorNames": ["Machado de Assis"]
+  "authorNames": ["Machado de Assis"],
+  "knowledgeAreaIds": [1],
+  "knowledgeAreaNames": ["Ciências Humanas"]
 }
 ```
 
 - `authorNames` cria autores novos ao salvar (find-or-create case-insensitive); nomes existentes são reutilizados.
-- `categoryIds`/`categoryNames` seguem o mesmo padrão (livro pode ter N categorias — relação `BookCategory`); `categoryNames` cria categorias novas ao salvar.
-- Categoria(s) do livro retornada(s) como `categories: [{ id, name, status, ... }]`.
+- `categoryIds`/`categoryNames` seguem o mesmo padrão (livro pode ter N categorias — relação `BookCategory`).
+- `knowledgeAreaIds`/`knowledgeAreaNames` seguem o mesmo padrão (livro pode ter N áreas de conhecimento — relação `BookKnowledgeArea`).
+- `format`: `CAPA`, `BROCHURA` ou `ESPIRAL` (validado por Zod; armazenado como String no SQLite).
+- `acquisitionType`: `COMPRA`, `DOACAO`, `REPOSICAO`, `PRODUCAO_INTERNA`, `TROCA`, `EMPRESTIMO_BIBLIOTECAS`, `LICITACAO`, `PERMUTA` ou `CONVENIO`.
 - ISBN normalizado (espaços/hífens removidos, dígito verificador validado).
 - Livro duplicado por ISBN → `409` com `{ error, code: 'BOOK_ALREADY_EXISTS', duplicate: { id, titulo, isbn10, isbn13 } }`.
 - `GET /books/cover?isbn=...` → `{ coverUrl, title, subtitle, isbn13, description, publisher, publicationYear }`.
+
+## Knowledge Areas — leitura pública
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/knowledge-areas` | — | Lista todas as áreas de conhecimento (sem paginação) |
 
 ## Authors — autenticação
 
@@ -106,13 +123,15 @@ Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `ca
 
 ## Readers — autenticação
 
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/api/readers` | Paginado com `activeLoans` por leitor; filtros: `search` (nome/CPF/e-mail), `status` (ACTIVE/INACTIVE/BLOCKED/ALL [padrão]) |
-| POST | `/api/readers` | Cria (CPF validado com dígitos verificadores; `409` CPF/e-mail duplicado) |
-| GET | `/api/readers/:id` | Detalhe + empréstimos (últimos 50) + reservas (últimas 20) + `activeLoans` + `overdueCount` |
-| PUT | `/api/readers/:id` | Atualiza campos parciais |
-| PATCH | `/api/readers/:id/status` | `{ status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED' }` |
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/readers` | ✅ | Paginado com `activeLoans` por leitor; filtros: `search` (nome/CPF/e-mail), `status` (ACTIVE/INACTIVE/BLOCKED/ALL [padrão]) |
+| POST | `/api/readers` | ✅ | Cria (CPF validado com dígitos verificadores; `409` CPF/e-mail duplicado) |
+| GET | `/api/readers/blocked` | ✅ | Lista de leitores bloqueados (paginado, com `activeLoans` e `blockedByName`); filtros: `search` |
+| GET | `/api/readers/:id` | ✅ | Detalhe + empréstimos (últimos 50) + reservas (últimas 20) + `activeLoans` + `overdueCount` |
+| PUT | `/api/readers/:id` | ✅ | Atualiza campos parciais |
+| PATCH | `/api/readers/:id/status` | ✅ | `{ status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED', reason?, category? }` |
+| DELETE | `/api/readers/:id` | ADMIN | Exclui leitor (anonimização LGPD): bloqueia se tiver empréstimos ativos, cancela reservas pendentes, substitui dados pessoais por valores genéricos. Corpo: `{ reason? }` |
 
 Corpo de criação: `{ name, cpf, birthDate?, phone?, email?, cep?, address?, number?, neighborhood?, city?, state? }` (UF com 2 letras).
 
@@ -207,7 +226,9 @@ Parâmetros: `type` (obrigatório) + `start`, `end`, `categoryId`, `bookId`, `re
 |---|---|---|
 | GET | `/api/backups` | Lista backups existentes (ordenados por data desc) |
 | POST | `/api/backups` | Cria backup manual (`VACUUM INTO`). Rotação automática: mantém apenas 5 |
-| POST | `/api/backups/:filename/restore` | Restaura banco a partir do backup (substitui `dev.db`) |
+| GET | `/api/backups/:filename/download` | Baixa o arquivo de backup (stream via `res.download`) |
+| POST | `/api/backups/restore-upload` | Restaura banco a partir de arquivo local (multipart: campo `file`, formatos `.sqlite`/`.db`, máx. 100 MB) |
+| POST | `/api/backups/:filename/restore` | Restaura banco a partir do backup no servidor (substitui `dev.db`) |
 | DELETE | `/api/backups/:filename` | Remove backup |
 
 `GET /backups` retorna:
@@ -218,7 +239,7 @@ Parâmetros: `type` (obrigatório) + `start`, `end`, `categoryId`, `bookId`, `re
 ]
 ```
 
-Backups automáticos: dois agendamentos diários via `node-cron` (18:30 e 23:45). Arquivos em `backend/backups/`. Validação de `filename`: regex `^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$`.
+Backups automáticos: dois agendamentos diários via `node-cron` (18:30 e 23:45). Arquivos em `backend/backups/`. Validação de `filename`: regex `^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$`. Upload usa `multer` com storage temporário em `backups/.tmp/`.
 
 ---
 

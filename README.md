@@ -1,10 +1,10 @@
-# Sistema de Livraria Pública
+# Sistema de Biblioteca Pública
 
 Sistema web para gestão de biblioteca pública: acervo, leitores, exemplares, empréstimos, devoluções, usuários, relatórios e catálogo público.
 
 ## Stack
 
-- **Backend**: Node.js + Express + TypeScript + Prisma ORM + SQLite (preparado para PostgreSQL) + JWT + bcryptjs
+- **Backend**: Node.js + Express + TypeScript + Prisma ORM + SQLite (preparado para PostgreSQL) + JWT + bcryptjs + multer (upload de backups)
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + Radix UI + Lucide React + React Router + Axios + React Hook Form + Zod
 - **UI/UX**: metodologia UI Architect ASJ (canvas `#F2F2F0`, primary `#087F8C`, superfícies creme, hairline, motion refinado)
 
@@ -141,7 +141,7 @@ O frontend estará disponível em: **http://localhost:5173**
 | `npm run db:setup` | Cria banco + aplica schema + roda seed |
 | `npm run db:push` | Aplica mudanças do schema sem seed |
 | `npm run db:seed` | Roda apenas o seed (cria admin se `.env` configurado) |
-| `npm run smoke` | Executa a suíte de testes E2E (58 casos) |
+| `npm run smoke` | Executa a suíte de testes E2E (63 casos) |
 | `npx tsc --noEmit` | Verifica tipos sem gerar output |
 
 ### Frontend
@@ -217,29 +217,33 @@ Violação de unique constraint. Ex.: tentar cadastrar um livro com ISBN já exi
 
 - [Arquitetura](docs/arquitetura.md) — stack, fluxo de dados, autenticação, RBAC, auditoria, erros
 - [Referência da API](docs/api.md) — todos os endpoints, parâmetros, exemplos e erros
-- [Regras de negócio](docs/regras-de-negocio.md) — limites, prazos, empréstimo em lote, autores, reservas
+- [Regras de negócio](docs/regras-de-negocio.md) — limites, prazos, empréstimo em lote, autores, reservas, exclusão de leitores, backup
 - [Módulos](docs/modulos.md) — routers do backend e páginas/rotas do frontend
 - [Testes e validação](docs/testes.md) — smoke E2E, typecheck, validação de UI, política anti-mock
 
 ## Fluxo MVP validado
 
-Cadastrar livro → cadastrar exemplar → cadastrar leitor → realizar empréstimo → acompanhar prazo → registrar devolução → disponibilizar novamente o exemplar.
+Cadastrar livro → cadastrar leitor → realizar empréstimo → acompanhar prazo → registrar devolução → disponibilizar novamente o livro.
 
 ## Regras de negócio
 
-- Limite inicial de 4 exemplares por leitor (configurável em Configurações)
+- Limite inicial de 4 empréstimos ativos por leitor (configurável em Configurações)
 - Prazo padrão de 15 dias (configurável)
 - Leitor bloqueado ou inativo não realiza nem renova empréstimo
-- Exemplar indisponível não é emprestado
+- Livro indisponível não é emprestado
 - Empréstimo vencido vira ATRASADO automaticamente
-- Devolução libera o exemplar e pode ativar reserva aguardando
+- Devolução libera o livro e pode ativar reserva aguardando
 - Novo empréstimo aceita vários livros de uma vez, limitado ao que sobra do
   limite do leitor (ativos + selecionados ≤ limite configurado); os empréstimos
   são criados em transação única — se qualquer livro falhar (já emprestado,
   reservado, arquivado), nenhum é criado
-- Autores: o formulário do livro aceita nomes separados por vírgulas; nomes não
+- Autores: o formulário aceita nomes separados por vírgulas; nomes não
   cadastrados são criados automaticamente ao salvar, reaproveitando o autor
   existente quando o nome bate ignorando maiúsculas
+- Áreas de conhecimento: mesmo padrão dos autores (find-or-create, relação N:N)
+- Livros possuem campos expandidos: formato (CAPA/BROCHURA/ESPIRAL), volume, CDD, cutter, localização física, cópias disponíveis, tipo de aquisição
+- Exclusão de leitores com anonimização LGPD (ADMIN apenas): dados pessoais substituídos, empréstimos ativos bloqueiam exclusão
+- Backups: download de arquivos existentes, restauração a partir de arquivo local do computador
 - Toda operação registra o usuário responsável (auditoria)
 
 ## Testes
@@ -262,3 +266,4 @@ cd frontend && npm run build
 - Buscas textuais no SQLite (Prisma `contains`) são case-sensitive; CPFs, códigos e números devem ser digitados conforme cadastrados.
 - Senhas com bcryptjs (API compatível com bcrypt, sem dependência nativa no Windows).
 - A comparação de nomes de autores para reaproveitamento ignora maiúsculas (feita em memória, no backend).
+- SQLite não suporta enums do Prisma: campos como `format` e `acquisitionType` são validados por Zod na borda da API e armazenados como String.

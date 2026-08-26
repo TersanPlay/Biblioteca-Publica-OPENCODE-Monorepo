@@ -79,17 +79,35 @@ Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda fu
 - No update do livro, a relação de autores é **reatribuída** (remove e recria), então o formulário deve enviar a lista completa.
 - Frontend: nomes digitados viram "chips"; chips de autores que serão criados aparecem destacados ("novo").
 
+## Áreas de Conhecimento com cadastro automático
+
+- O formulário de livro aceita nomes de áreas de conhecimento separados por **vírgulas**.
+- Ao salvar, cada nome é procurado no cadastro (find-or-create case-insensitive).
+  - Existe → reaproveita (não cria duplicado).
+  - Não existe → cria (tabela `KnowledgeArea`).
+- Relação N:N com livros via `BookKnowledgeArea`.
+- No update, a relação é reatribuída (remove e recria).
+
 ## Livros
 
 - ISBN-10 e ISBN-13 validados com dígito verificador; normalizados (espaços/hífens removidos, maiúsculas).
 - Duplicado por ISBN → `409` com detalhes do livro existente (`code: BOOK_ALREADY_EXISTS`).
 - Capa: `GET /books/cover` consulta a Amazon Brasil (fallback .com) e extrai capa, título, subtítulo, ISBN-13, descrição, editora e ano; timeout de 12 s; rate limit 30/15 min.
+- Campos expandidos: `format` (CAPA/BROCHURA/ESPIRAL), `volume`, `cdd`, `cutter`, `physicalLocation`, `availableCopies`, `acquisitionType` (COMPRA/DOACAO/REPOSICAO/PRODUCAO_INTERNA/TROCA/EMPRESTIMO_BIBLIOTECAS/LICITACAO/PERMUTA/CONVENIO).
+- SQLite não suporta enums do Prisma: valores validados por Zod na borda da API, armazenados como String.
 
 ## Leitores
 
 - CPF validado com dígitos verificadores (11 dígitos, sem sequências repetidas).
 - CPF único; e-mail único quando informado.
 - Bloqueio manual pela tela de leitores; bloqueado não empresta, não renova, não reserva nem retira reserva.
+- Motivo e categoria de bloqueio registrados (`blockReason`, `blockCategory`, `blockedAt`, `blockedBy`).
+- **Exclusão com anonimização LGPD** (`DELETE /readers/:id`, ADMIN apenas):
+  - Bloqueia se houver empréstimos ativos ou em atraso.
+  - Cancela reservas pendentes/disponíveis do leitor.
+  - Substitui dados pessoais: nome → "Leitor excluído", CPF → "EXCLUIDO-{id}", demais campos → `null`.
+  - Status → `INACTIVE`, registra `deletedAt` e `anonymizedAt`.
+  - Registra auditoria `READER_DELETED` com referência ao ID original.
 
 ## Usuários do sistema
 
@@ -101,6 +119,21 @@ Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda fu
 ## Auditoria
 
 Toda operação de escrita registra quem (usuário autenticado), o quê (ação), sobre qual entidade, com metadados e IP. Falhas de login também são registradas (sem usuário).
+
+Ações registradas: `LOGIN`, `LOGOUT`, `LOGIN_FAILED`, `USER_CREATED`, `USER_UPDATED`, `USER_PASSWORD_RESET`, `BOOK_CREATED`, `BOOK_UPDATED`, `BOOK_ARCHIVED`, `BOOK_RESTORED`, `AUTHOR_CREATED`, `AUTHOR_UPDATED`, `AUTHOR_ACTIVATED`, `AUTHOR_INACTIVATED`, `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_STATUS_CHANGED`, `READER_CREATED`, `READER_UPDATED`, `READER_STATUS_CHANGED`, `READER_DELETED`, `LOAN_CREATED`, `LOAN_RETURNED`, `LOAN_RENEWED`, `RESERVATION_CREATED`, `RESERVATION_CANCELLED`, `RESERVATION_FULFILLED`, `SETTINGS_UPDATED`.
+
+## Backup
+
+- Backups automáticos: dois horários diários via `node-cron` (18:30 e 23:45).
+- Mecanismo: `VACUUM INTO` (SQLite 3.27+) — seguro com escritas concorrentes.
+- Armazenamento: `backend/backups/` com arquivos `backup_YYYY-MM-DD_HH-mm.sqlite`.
+- Rotação: mantém apenas os 5 backups mais recentes; os antigos são deletados automaticamente.
+- **Download**: `GET /api/backups/:filename/download` — stream do arquivo real.
+- **Upload/Restauração local**: `POST /api/backups/restore-upload` — recebe arquivo via multipart (campo `file`, formatos `.sqlite`/`.db`, máx. 100 MB), copia sobre `dev.db`.
+- **Restauração do servidor**: `POST /api/backups/:filename/restore` — copia o backup do servidor sobre `dev.db`.
+- Extensão validada no backend (regex no filename, multer fileFilter no upload).
+- Restauração requer confirmação explícita no frontend (modal, não `window.confirm`).
+- Todas as rotas protegidas: `requireAuth` + `requireRoles('ADMIN')`.
 
 ## Política anti-dados-mock
 
