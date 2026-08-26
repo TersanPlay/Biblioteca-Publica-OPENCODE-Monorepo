@@ -143,6 +143,15 @@ export interface Loan {
   renewals: number;
   notes: string | null;
   status: LoanStatus;
+  readerNameSnapshot?: string | null;
+  bookTitleSnapshot?: string | null;
+  bookAuthorSnapshot?: string | null;
+  bookIsbnSnapshot?: string | null;
+  bookNumberSnapshot?: string | null;
+  createdByNameSnapshot?: string | null;
+  returnCondition?: string | null;
+  returnObservations?: string | null;
+  receivedByNameSnapshot?: string | null;
   reader?: Reader;
   book?: Book;
   user?: { id: number; name: string };

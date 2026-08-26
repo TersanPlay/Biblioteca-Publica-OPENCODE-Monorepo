@@ -146,7 +146,8 @@ export const loansApi = {
     api.post<Loan>('/loans', v).then((r) => r.data),
   createBatch: (v: { readerId: number; bookIds: number[]; notes?: string; dueDate?: string }) =>
     api.post<{ items: Loan[]; count: number }>('/loans/batch', v).then((r) => r.data),
-  return: (id: number) => api.post<Loan>(`/loans/${id}/return`).then((r) => r.data),
+  return: (id: number, data?: { condition?: string; observations?: string }) =>
+    api.post<Loan>(`/loans/${id}/return`, data).then((r) => r.data),
   renew: (id: number) => api.post<Loan>(`/loans/${id}/renew`).then((r) => r.data),
   search: (query: string) =>
     api.get<{ items: Loan[] }>('/loans/search', { params: { q: query } }).then((r) => r.data.items),
