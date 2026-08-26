@@ -40,7 +40,7 @@ type NameMap = Map<string, number>;
 async function resolveInto(
   tx: Prisma.TransactionClient,
   map: NameMap,
-  model: 'author' | 'category' | 'subject' | 'knowledgeArea',
+  model: 'author' | 'category' | 'knowledgeArea',
   names: string[],
 ): Promise<number[]> {
   const ids: number[] = [];
@@ -68,15 +68,13 @@ async function main() {
   const rows: ImportRow[] = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   console.log(`Linhas lidas: ${rows.length}`);
 
-  const [authors, categories, subjects, knowledgeAreas] = await Promise.all([
+  const [authors, categories, knowledgeAreas] = await Promise.all([
     prisma.author.findMany({ select: { id: true, name: true } }),
     prisma.category.findMany({ select: { id: true, name: true } }),
-    prisma.subject.findMany({ select: { id: true, name: true } }),
     prisma.knowledgeArea.findMany({ select: { id: true, name: true } }),
   ]);
   const authorMap: NameMap = new Map(authors.map((a) => [a.name.toLowerCase(), a.id]));
   const categoryMap: NameMap = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]));
-  const subjectMap: NameMap = new Map(subjects.map((s) => [s.name.toLowerCase(), s.id]));
   const knowledgeAreaMap: NameMap = new Map(knowledgeAreas.map((k) => [k.name.toLowerCase(), k.id]));
 
   const seen = new Set<string>();
@@ -139,12 +137,6 @@ async function main() {
       if (categoryIds.length > 0) {
         await tx.bookCategory.createMany({
           data: categoryIds.map((categoryId) => ({ bookId: book.id, categoryId })),
-        });
-      }
-      const subjectIds = await resolveInto(tx, subjectMap, 'subject', row.subjects);
-      if (subjectIds.length > 0) {
-        await tx.bookSubject.createMany({
-          data: subjectIds.map((subjectId) => ({ bookId: book.id, subjectId })),
         });
       }
       const knowledgeAreaIds = await resolveInto(tx, knowledgeAreaMap, 'knowledgeArea', row.knowledgeAreas);

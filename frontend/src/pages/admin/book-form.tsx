@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/input';
 import { NativeSelect } from '../../components/ui/select';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Textarea } from '../../components/ui/textarea';
-import { authorsApi, booksApi, categoriesApi, knowledgeAreasApi, subjectsApi } from '../../features/api';
+import { authorsApi, booksApi, categoriesApi, knowledgeAreasApi } from '../../features/api';
 import { useToast } from '../../features/toast/toast-provider';
 import { apiErrorMessage } from '../../lib/errors';
 import { isValidIsbn10, isValidIsbn13 } from '../../lib/isbn';
@@ -22,7 +22,6 @@ import type {
   BookRef,
   Category,
   KnowledgeArea,
-  Subject,
 } from '../../types/api';
 
 const DUPLICATE_MESSAGE: Record<'isbn10' | 'isbn13', string> = {
@@ -84,7 +83,6 @@ const schema = z.object({
   ]),
   categories: z.array(tagValue),
   authors: z.array(tagValue).min(1, 'Informe ao menos um autor'),
-  subjects: z.array(tagValue),
   knowledgeAreas: z.array(tagValue),
 });
 
@@ -253,7 +251,6 @@ export function BookFormPage() {
   const [book, setBook] = useState<Book | null>(null);
   const [authors, setAuthors] = useState<Author[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [knowledgeAreas, setKnowledgeAreas] = useState<KnowledgeArea[]>([]);
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
@@ -267,16 +264,15 @@ export function BookFormPage() {
       edition: '', publicationYear: '', language: 'Português', pages: '', coverUrl: '',
       format: '', volume: '', cdd: '', cutter: '', physicalLocation: '',
       availableCopies: '', acquisitionType: '',
-      categories: [], authors: [], subjects: [], knowledgeAreas: [],
+      categories: [], authors: [], knowledgeAreas: [],
     },
   });
 
   useEffect(() => {
-    Promise.all([authorsApi.all(), categoriesApi.all(), subjectsApi.all(), knowledgeAreasApi.all()])
-      .then(([a, c, s, k]) => {
+    Promise.all([authorsApi.all(), categoriesApi.all(), knowledgeAreasApi.all()])
+      .then(([a, c, k]) => {
         setAuthors(a);
         setCategories(c);
-        setSubjects(s);
         setKnowledgeAreas(k);
       })
       .catch(() => undefined);
@@ -309,7 +305,6 @@ export function BookFormPage() {
           acquisitionType: b.acquisitionType ?? '',
           categories: b.categories.map((c) => ({ id: c.id, name: c.name })),
           authors: b.authors.map((a) => ({ id: a.author.id, name: a.author.name })),
-          subjects: b.subjects.map((s) => ({ id: s.id, name: s.name })),
           knowledgeAreas: b.knowledgeAreas.map((k) => ({ id: k.id, name: k.name })),
         });
       })
@@ -322,7 +317,6 @@ export function BookFormPage() {
 
   const authorsField = watch('authors');
   const categoriesField = watch('categories');
-  const subjectsField = watch('subjects');
   const knowledgeAreasField = watch('knowledgeAreas');
 
   const isbn10 = watch('isbn10');
@@ -565,16 +559,6 @@ export function BookFormPage() {
             <div>
               <Label htmlFor="cutter">Cutter</Label>
               <Input id="cutter" placeholder="M338d" {...register('cutter')} />
-            </div>
-            <div className="sm:col-span-2">
-              <TagInputField
-                label="Assuntos"
-                helpText="Digite os assuntos separados por vírgulas (ex.: romance, literatura brasileira). Assuntos ainda não cadastrados são criados ao salvar."
-                placeholder="Nome do assunto..."
-                options={subjects}
-                value={subjectsField}
-                onChange={(next) => setValue('subjects', next)}
-              />
             </div>
             <div className="sm:col-span-2">
               <TagInputField

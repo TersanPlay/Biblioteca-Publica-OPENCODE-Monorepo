@@ -14,7 +14,6 @@ export const bookRouter = Router();
 export const bookInclude = {
   categories: { include: { category: true } },
   authors: { include: { author: true } },
-  subjects: { include: { subject: true } },
   knowledgeAreas: { include: { knowledgeArea: true } },
 };
 
@@ -72,32 +71,6 @@ async function resolveCategoryNames(
   return { ids, created };
 }
 
-async function resolveSubjectNames(
-  tx: Prisma.TransactionClient,
-  names: string[],
-): Promise<{ ids: number[]; created: { id: number; name: string }[] }> {
-  const ids: number[] = [];
-  const created: { id: number; name: string }[] = [];
-  if (names.length === 0) return { ids, created };
-  const all = await tx.subject.findMany({ select: { id: true, name: true } });
-  const nameMap = new Map(all.map((s) => [s.name.toLowerCase(), s.id]));
-  for (const raw of names) {
-    const name = raw.trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    const existingId = nameMap.get(key);
-    if (existingId) {
-      ids.push(existingId);
-    } else {
-      const subject = await tx.subject.create({ data: { name } });
-      created.push({ id: subject.id, name: subject.name });
-      nameMap.set(key, subject.id);
-      ids.push(subject.id);
-    }
-  }
-  return { ids, created };
-}
-
 async function resolveKnowledgeAreaNames(
   tx: Prisma.TransactionClient,
   names: string[],
@@ -128,7 +101,6 @@ function mapBook(b: any, isAvailable: boolean) {
   return {
     ...b,
     categories: (b.categories ?? []).map((c: any) => c.category),
-    subjects: (b.subjects ?? []).map((s: any) => s.subject),
     knowledgeAreas: (b.knowledgeAreas ?? []).map((k: any) => k.knowledgeArea),
     isAvailable,
   };
@@ -306,7 +278,6 @@ const data = parse(bookSchema, req.body);
     const result = await prisma.$transaction(async (tx) => {
       const createdAuthors: { id: number; name: string }[] = [];
       const createdCategories: { id: number; name: string }[] = [];
-      const createdSubjects: { id: number; name: string }[] = [];
       const createdKnowledgeAreas: { id: number; name: string }[] = [];
       const book = await tx.book.create({
         data: {
@@ -346,14 +317,6 @@ const data = parse(bookSchema, req.body);
         });
         createdCategories.push(...resolved.created);
       }
-      if (data.subjectIds.length > 0 || data.subjectNames.length > 0) {
-        const resolved = await resolveSubjectNames(tx, data.subjectNames);
-        const subjectIds = [...new Set([...data.subjectIds, ...resolved.ids])];
-        await tx.bookSubject.createMany({
-          data: subjectIds.map((subjectId) => ({ bookId: book.id, subjectId })),
-        });
-        createdSubjects.push(...resolved.created);
-      }
       if (data.knowledgeAreaIds.length > 0 || data.knowledgeAreaNames.length > 0) {
         const resolved = await resolveKnowledgeAreaNames(tx, data.knowledgeAreaNames);
         const knowledgeAreaIds = [...new Set([...data.knowledgeAreaIds, ...resolved.ids])];
@@ -362,16 +325,13 @@ const data = parse(bookSchema, req.body);
         });
         createdKnowledgeAreas.push(...resolved.created);
       }
-      return { book, createdAuthors, createdCategories, createdSubjects, createdKnowledgeAreas };
+      return { book, createdAuthors, createdCategories, createdKnowledgeAreas };
     });
     for (const a of result.createdAuthors) {
       await writeAudit(req.user?.id, 'AUTHOR_CREATED', 'Author', a.id, { name: a.name }, req.ip);
     }
     for (const c of result.createdCategories) {
       await writeAudit(req.user?.id, 'CATEGORY_CREATED', 'Category', c.id, { name: c.name }, req.ip);
-    }
-    for (const s of result.createdSubjects) {
-      await writeAudit(req.user?.id, 'SUBJECT_CREATED', 'Subject', s.id, { name: s.name }, req.ip);
     }
     for (const k of result.createdKnowledgeAreas) {
       await writeAudit(req.user?.id, 'KNOWLEDGE_AREA_CREATED', 'KnowledgeArea', k.id, { name: k.name }, req.ip);
@@ -397,7 +357,6 @@ const id = Number(req.params.id);
     }
 const createdAuthors: { id: number; name: string }[] = [];
     const createdCategories: { id: number; name: string }[] = [];
-    const createdSubjects: { id: number; name: string }[] = [];
     const createdKnowledgeAreas: { id: number; name: string }[] = [];
     await prisma.$transaction(async (tx) => {
       await tx.book.update({
@@ -441,15 +400,6 @@ const createdAuthors: { id: number; name: string }[] = [];
         });
       }
       createdCategories.push(...resolvedCategories.created);
-      await tx.bookSubject.deleteMany({ where: { bookId: id } });
-      const resolvedSubjects = await resolveSubjectNames(tx, data.subjectNames);
-      const subjectIds = [...new Set([...data.subjectIds, ...resolvedSubjects.ids])];
-      if (subjectIds.length > 0) {
-        await tx.bookSubject.createMany({
-          data: subjectIds.map((subjectId) => ({ bookId: id, subjectId })),
-        });
-      }
-      createdSubjects.push(...resolvedSubjects.created);
       await tx.bookKnowledgeArea.deleteMany({ where: { bookId: id } });
       const resolvedKnowledgeAreas = await resolveKnowledgeAreaNames(tx, data.knowledgeAreaNames);
       const knowledgeAreaIds = [...new Set([...data.knowledgeAreaIds, ...resolvedKnowledgeAreas.ids])];
@@ -465,9 +415,6 @@ const createdAuthors: { id: number; name: string }[] = [];
     }
     for (const c of createdCategories) {
       await writeAudit(req.user?.id, 'CATEGORY_CREATED', 'Category', c.id, { name: c.name }, req.ip);
-    }
-    for (const s of createdSubjects) {
-      await writeAudit(req.user?.id, 'SUBJECT_CREATED', 'Subject', s.id, { name: s.name }, req.ip);
     }
     for (const k of createdKnowledgeAreas) {
       await writeAudit(req.user?.id, 'KNOWLEDGE_AREA_CREATED', 'KnowledgeArea', k.id, { name: k.name }, req.ip);

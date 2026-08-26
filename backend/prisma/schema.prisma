@@ -97,24 +97,9 @@ model Book {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   authors         BookAuthor[]
-  subjects        BookSubject[]
-  knowledgeAreas  BookKnowledgeArea[]
+  knowledgeAreas    BookKnowledgeArea[]
   loans           Loan[]
   reservations    Reservation[]
-}
-
-model Subject {
-  id    Int    @id @default(autoincrement())
-  name  String @unique
-  books BookSubject[]
-}
-
-model BookSubject {
-  bookId    Int
-  subjectId Int
-  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  @@id([bookId, subjectId])
 }
 
 model KnowledgeArea {

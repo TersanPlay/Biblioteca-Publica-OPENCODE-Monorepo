@@ -62,11 +62,6 @@ export type AcquisitionType =
   | 'PERMUTA'
   | 'CONVENIO';
 
-export interface Subject {
-  id: number;
-  name: string;
-}
-
 export interface KnowledgeArea {
   id: number;
   name: string;
@@ -95,7 +90,6 @@ export interface Book {
   isArchived: boolean;
   categories: Category[];
   authors: { author: Author }[];
-  subjects: Subject[];
   knowledgeAreas: KnowledgeArea[];
   isAvailable: boolean;
   hasActiveLoan?: boolean;
@@ -255,6 +249,5 @@ export interface BookFormValues {
   acquisitionType: string;
   categories: { id: number | null; name: string }[];
   authors: { id: number | null; name: string }[];
-  subjects: { id: number | null; name: string }[];
   knowledgeAreas: { id: number | null; name: string }[];
 }
