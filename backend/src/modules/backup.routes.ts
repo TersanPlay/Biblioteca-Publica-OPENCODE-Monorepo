@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import multer from 'multer';
 import cron from 'node-cron';
 import prisma from '../lib/prisma';
 import { asyncHandler } from '../middleware/async-handler';
@@ -84,13 +85,68 @@ backupRouter.post(
   }),
 );
 
+const SAFE_FILENAME = /^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$/;
+
+const upload = multer({
+  dest: path.resolve(__dirname, '../../backups/.tmp'),
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const lower = file.originalname.toLowerCase();
+    if (lower.endsWith('.sqlite') || lower.endsWith('.db')) {
+      cb(null, true);
+    } else {
+      cb(new HttpError(400, 'Formato inválido. Use arquivos .sqlite ou .db'));
+    }
+  },
+});
+
+backupRouter.get(
+  '/:filename/download',
+  requireAuth,
+  requireRoles('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const { filename } = req.params;
+    if (!SAFE_FILENAME.test(filename)) {
+      throw new HttpError(400, 'Nome de arquivo inválido');
+    }
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      throw new HttpError(404, 'Backup não encontrado');
+    }
+    res.download(filePath, filename);
+  }),
+);
+
+backupRouter.post(
+  '/restore-upload',
+  requireAuth,
+  requireRoles('ADMIN'),
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    const file = req.file;
+    if (!file) {
+      throw new HttpError(400, 'Nenhum arquivo enviado');
+    }
+
+    fs.copyFileSync(file.path, DB_PATH);
+    fs.unlinkSync(file.path);
+
+    const journalPath = DB_PATH + '-journal';
+    if (fs.existsSync(journalPath)) fs.unlinkSync(journalPath);
+    const walPath = DB_PATH + '-wal';
+    if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+
+    res.json({ ok: true, message: 'Banco restaurado a partir do arquivo enviado. Reinicie o servidor.' });
+  }),
+);
+
 backupRouter.post(
   '/:filename/restore',
   requireAuth,
   requireRoles('ADMIN'),
   asyncHandler(async (req, res) => {
     const { filename } = req.params;
-    if (!/^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$/.test(filename)) {
+    if (!SAFE_FILENAME.test(filename)) {
       throw new HttpError(400, 'Nome de arquivo inválido');
     }
 
@@ -116,7 +172,7 @@ backupRouter.delete(
   requireRoles('ADMIN'),
   asyncHandler(async (req, res) => {
     const { filename } = req.params;
-    if (!/^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$/.test(filename)) {
+    if (!SAFE_FILENAME.test(filename)) {
       throw new HttpError(400, 'Nome de arquivo inválido');
     }
 

@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { Database, RefreshCw, Trash2 } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { Database, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { PageSkeleton } from '../../components/ui/skeleton';
@@ -18,6 +18,10 @@ export function BackupsPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const { toast } = useApiToast();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [confirmRestoreFile, setConfirmRestoreFile] = useState(false);
+
   const handleCreate = async () => {
     setBusy(true);
     try {
@@ -28,6 +32,14 @@ export function BackupsPage() {
       toast.error('Erro ao criar backup', apiErrorMessage(err));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleDownload = async (filename: string) => {
+    try {
+      await backupsApi.download(filename);
+    } catch (err) {
+      toast.error('Erro ao baixar', apiErrorMessage(err));
     }
   };
 
@@ -53,6 +65,27 @@ export function BackupsPage() {
       refetch();
     } catch (err) {
       toast.error('Erro ao remover', apiErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRestoreFile = async () => {
+    if (!selectedFile) return;
+    setBusy(true);
+    try {
+      await backupsApi.restoreUpload(selectedFile);
+      toast.success('Banco restaurado', 'Restaurado a partir do arquivo local. Reinicie o servidor.');
+      setConfirmRestoreFile(false);
+      setSelectedFile(null);
+    } catch (err) {
+      toast.error('Erro ao restaurar', apiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -115,6 +148,13 @@ export function BackupsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
+                          onClick={() => handleDownload(b.filename)}
+                          className="rounded-control p-2 text-muted transition-colors hover:bg-primary-soft hover:text-primary-dark"
+                          title="Baixar"
+                        >
+                          <Download className="size-4" />
+                        </button>
+                        <button
                           onClick={() => setConfirmRestore(b.filename)}
                           className="rounded-control p-2 text-muted transition-colors hover:bg-primary-soft hover:text-primary-dark"
                           title="Restaurar"
@@ -138,6 +178,46 @@ export function BackupsPage() {
         )}
       </Card>
 
+      <Card className="mt-5 p-4">
+        <h2 className="text-sm font-bold text-ink">Restaurar backup do computador</h2>
+        <p className="mt-1 text-[13px] text-muted">
+          Selecione um arquivo de backup salvo anteriormente.
+        </p>
+
+        <div className="mt-3 flex items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".sqlite,.db"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <Button
+            variant="secondary"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+          >
+            <Upload className="size-4" /> Selecionar arquivo
+          </Button>
+          {selectedFile && (
+            <span className="text-[13px] text-muted">
+              {selectedFile.name} ({formatBytes(selectedFile.size)})
+            </span>
+          )}
+          {!selectedFile && (
+            <span className="text-[13px] text-muted/60">Nenhum arquivo selecionado</span>
+          )}
+        </div>
+
+        <Button
+          className="mt-3"
+          disabled={!selectedFile || busy}
+          onClick={() => setConfirmRestoreFile(true)}
+        >
+          <RefreshCw className="size-4" /> Restaurar backup
+        </Button>
+      </Card>
+
       <ConfirmDialog
         open={!!confirmRestore}
         onOpenChange={() => setConfirmRestore(null)}
@@ -145,6 +225,17 @@ export function BackupsPage() {
         description={`O banco de dados será substituído por ${confirmRestore}. O servidor precisará ser reiniciado.`}
         confirmLabel="Restaurar"
         onConfirm={() => { if (confirmRestore) return handleRestore(confirmRestore); }}
+        loading={busy}
+      />
+
+      <ConfirmDialog
+        open={confirmRestoreFile}
+        onOpenChange={() => setConfirmRestoreFile(false)}
+        title="Restaurar backup do computador?"
+        description="A restauração substituirá os dados atuais pelos dados existentes neste backup. Esta operação pode não ser reversível. O servidor precisará ser reiniciado."
+        confirmLabel="Restaurar"
+        destructive
+        onConfirm={handleRestoreFile}
         loading={busy}
       />
 
