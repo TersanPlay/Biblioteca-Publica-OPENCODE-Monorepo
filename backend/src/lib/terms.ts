@@ -37,15 +37,37 @@ function formatDateTime(d: Date | string): string {
 
 function drawBookIcon(doc: typeof PDFDocument, x: number, y: number, size: number) {
   const s = size;
+  const ox = x;
+  const oy = y;
+  const sx = s / 24;
+  const sy = s / 24;
+
   doc.save();
   doc.fill('#087F8C').roundedRect(x, y, s, s, 3).fill();
-  doc.fillColor('white').strokeColor('white').lineWidth(1.2);
-  const cx = x + s / 2;
-  const cy = y + s / 2;
-  const bw = s * 0.42;
-  const bh = s * 0.52;
-  doc.roundedRect(cx - bw / 2, cy - bh / 2, bw, bh, 1).stroke();
-  doc.moveTo(cx, cy - bh / 2 + 2).lineTo(cx, cy + bh / 2 - 2).lineWidth(0.8).stroke();
+
+  doc.strokeColor('white').lineWidth(1.4).lineCap('round').lineJoin('round').fillColor('none');
+
+  // Spine: M12 7v14
+  doc.moveTo(ox + 12 * sx, oy + 7 * sy).lineTo(ox + 12 * sx, oy + 21 * sy).stroke();
+
+  // Book shape (simplified straight lines)
+  doc.moveTo(ox + 2 * sx, oy + 4 * sy)
+    .lineTo(ox + 2 * sx, oy + 17 * sy)
+    .lineTo(ox + 4 * sx, oy + 19 * sy)
+    .lineTo(ox + 9 * sx, oy + 21 * sy)
+    .lineTo(ox + 12 * sx, oy + 7 * sy)
+    .lineTo(ox + 15 * sx, oy + 21 * sy)
+    .lineTo(ox + 20 * sx, oy + 19 * sy)
+    .lineTo(ox + 22 * sx, oy + 17 * sy)
+    .lineTo(ox + 22 * sx, oy + 4 * sy)
+    .lineTo(ox + 20 * sx, oy + 3 * sy)
+    .lineTo(ox + 16 * sx, oy + 3 * sy)
+    .lineTo(ox + 12 * sx, oy + 7 * sy)
+    .lineTo(ox + 8 * sx, oy + 3 * sy)
+    .lineTo(ox + 4 * sx, oy + 3 * sy)
+    .closePath()
+    .stroke();
+
   doc.restore();
 }
 
