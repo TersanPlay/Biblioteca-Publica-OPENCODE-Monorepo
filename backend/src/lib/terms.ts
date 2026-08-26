@@ -19,6 +19,9 @@ interface LoanTermData {
   returnCondition: string | null;
   returnObservations: string | null;
   receivedByNameSnapshot: string | null;
+  reader?: { name: string } | null;
+  book?: { title: string; isbn10: string | null; isbn13: string | null } | null;
+  user?: { name: string } | null;
 }
 
 interface LibrarySettings {
@@ -125,6 +128,13 @@ export function generateLoanTermPDF(loan: LoanTermData, settings: LibrarySetting
   const num = loan.number || `EMP-${String(loan.id).padStart(6, '0')}`;
   const code = verificationCode('EMP', loan.id, loan.createdAt);
 
+  const readerName = loan.readerNameSnapshot || loan.reader?.name || '—';
+  const bookTitle = loan.bookTitleSnapshot || loan.book?.title || '—';
+  const bookAuthor = loan.bookAuthorSnapshot || '—';
+  const bookIsbn = loan.bookIsbnSnapshot || loan.book?.isbn13 || loan.book?.isbn10 || '—';
+  const bookNumber = loan.bookNumberSnapshot || String(loan.bookId);
+  const createdByName = loan.createdByNameSnapshot || loan.user?.name || '—';
+
   const hY = drawHeader(doc, settings);
   doc.y = hY; doc.x = 50;
   doc.fontSize(15).font('Helvetica-Bold').fillColor(C.ink).text('TERMO DE EMPRÉSTIMO', { align: 'center' });
@@ -143,26 +153,26 @@ export function generateLoanTermPDF(loan: LoanTermData, settings: LibrarySetting
 
   y = section(doc, y, '2. Leitor', (doc) => {
     fieldRow(doc, [
-      { label: 'Nome completo:', value: loan.readerNameSnapshot || '—' },
+      { label: 'Nome completo:', value: readerName },
       { label: 'Código:', value: `LTR-${String(loan.readerId).padStart(6, '0')}` },
     ], doc.y);
   });
 
   y = section(doc, y, '3. Material Bibliográfico', (doc) => {
     fieldRow(doc, [
-      { label: 'Título:', value: loan.bookTitleSnapshot || '—' },
-      { label: 'Autor(es):', value: loan.bookAuthorSnapshot || '—' },
+      { label: 'Título:', value: bookTitle },
+      { label: 'Autor(es):', value: bookAuthor },
     ], doc.y);
     doc.y += 16;
     fieldRow(doc, [
-      { label: 'ISBN:', value: loan.bookIsbnSnapshot || '—' },
-      { label: 'Código/Tombo:', value: `#${loan.bookNumberSnapshot || String(loan.bookId)}` },
+      { label: 'ISBN:', value: bookIsbn },
+      { label: 'Código/Tombo:', value: `#${bookNumber}` },
     ], doc.y);
   });
 
   y = section(doc, y, '4. Registro do Atendimento', (doc) => {
     fieldRow(doc, [
-      { label: 'Servidor/Responsável:', value: loan.createdByNameSnapshot || '—' },
+      { label: 'Servidor/Responsável:', value: createdByName },
       { label: 'Data do empréstimo:', value: formatDate(loan.loanDate) },
     ], doc.y);
     doc.y += 16;
@@ -176,15 +186,15 @@ export function generateLoanTermPDF(loan: LoanTermData, settings: LibrarySetting
     doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
     doc.text('________________________________', 60, sy);
     doc.fontSize(6.5).fillColor(C.gray).text('Assinatura do Leitor', 60, doc.y + 1);
-    doc.text(loan.readerNameSnapshot || '—', 60, doc.y + 8);
+    doc.text(readerName, 60, doc.y + 8);
     doc.fontSize(7.5).fillColor(C.ink).text('________________________________', 300, sy);
     doc.fontSize(6.5).fillColor(C.gray).text('Responsável pelo atendimento', 300, doc.y - 19);
-    doc.text(loan.createdByNameSnapshot || '—', 300, doc.y + 8);
+    doc.text(createdByName, 300, doc.y + 8);
     doc.restore();
     doc.y = sy + 40;
   });
 
-  drawFooter(doc, code, loan.createdAt, num, loan.createdByNameSnapshot);
+  drawFooter(doc, code, loan.createdAt, num, createdByName);
   drawPageNum(doc);
   return doc;
 }
@@ -195,6 +205,13 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
   const loanNum = loan.number || `EMP-${String(loan.id).padStart(6, '0')}`;
   const retNum = `DEV-${String(loan.id).padStart(6, '0')}`;
   const code = verificationCode('DEV', loan.id, loan.returnedAt || new Date());
+
+  const readerName = loan.readerNameSnapshot || loan.reader?.name || '—';
+  const bookTitle = loan.bookTitleSnapshot || loan.book?.title || '—';
+  const bookAuthor = loan.bookAuthorSnapshot || '—';
+  const bookIsbn = loan.bookIsbnSnapshot || loan.book?.isbn13 || loan.book?.isbn10 || '—';
+  const bookNumber = loan.bookNumberSnapshot || String(loan.bookId);
+  const receivedByName = loan.receivedByNameSnapshot || '—';
 
   const loanDays = loan.returnedAt
     ? Math.ceil((new Date(loan.returnedAt).getTime() - new Date(loan.loanDate).getTime()) / 86400000) : 0;
@@ -246,20 +263,20 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
 
   y = section(doc, y, '3. Leitor', (doc) => {
     fieldRow(doc, [
-      { label: 'Nome completo:', value: loan.readerNameSnapshot || '—' },
+      { label: 'Nome completo:', value: readerName },
       { label: 'Código:', value: `LTR-${String(loan.readerId).padStart(6, '0')}` },
     ], doc.y);
   });
 
   y = section(doc, y, '4. Material Bibliográfico', (doc) => {
     fieldRow(doc, [
-      { label: 'Título:', value: loan.bookTitleSnapshot || '—' },
-      { label: 'Autor(es):', value: loan.bookAuthorSnapshot || '—' },
+      { label: 'Título:', value: bookTitle },
+      { label: 'Autor(es):', value: bookAuthor },
     ], doc.y);
     doc.y += 16;
     fieldRow(doc, [
-      { label: 'ISBN:', value: loan.bookIsbnSnapshot || '—' },
-      { label: 'Código/Tombo:', value: `#${loan.bookNumberSnapshot || String(loan.bookId)}` },
+      { label: 'ISBN:', value: bookIsbn },
+      { label: 'Código/Tombo:', value: `#${bookNumber}` },
     ], doc.y);
   });
 
@@ -274,7 +291,7 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
 
   y = section(doc, y, '6. Responsável pelo Recebimento', (doc) => {
     fieldRow(doc, [
-      { label: 'Servidor/Responsável:', value: loan.receivedByNameSnapshot || '—' },
+      { label: 'Servidor/Responsável:', value: receivedByName },
       { label: 'Data/Hora do registro:', value: loan.returnedAt ? formatDateTime(loan.returnedAt) : '—' },
     ], doc.y);
   });
@@ -284,15 +301,15 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
     doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
     doc.text('________________________________', 60, sy);
     doc.fontSize(6.5).fillColor(C.gray).text('Leitor / Responsável', 60, doc.y + 1);
-    doc.text(loan.readerNameSnapshot || '—', 60, doc.y + 8);
+    doc.text(readerName, 60, doc.y + 8);
     doc.fontSize(7.5).fillColor(C.ink).text('________________________________', 300, sy);
     doc.fontSize(6.5).fillColor(C.gray).text('Servidor responsável pelo recebimento', 300, doc.y - 19);
-    doc.text(loan.receivedByNameSnapshot || '—', 300, doc.y + 8);
+    doc.text(receivedByName, 300, doc.y + 8);
     doc.restore();
     doc.y = sy + 40;
   });
 
-  drawFooter(doc, code, loan.returnedAt || new Date(), loanNum, loan.receivedByNameSnapshot);
+  drawFooter(doc, code, loan.returnedAt || new Date(), loanNum, receivedByName);
   drawPageNum(doc);
   return doc;
 }

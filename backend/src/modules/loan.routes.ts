@@ -376,12 +376,12 @@ loanRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const loan = await prisma.loan.findUnique({ where: { id } });
+    const loan = await prisma.loan.findUnique({ where: { id }, include: { reader: true, book: true } });
     if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
     const settings = await getSettings();
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="termo-emprestimo-${loan.number || `EMP-${String(loan.id).padStart(6, '0')}`}.pdf"`);
-    const doc = generateLoanTermPDF(loan, settings);
+    const doc = generateLoanTermPDF(loan as any, settings);
     doc.pipe(res);
     doc.end();
   }),
@@ -392,13 +392,13 @@ loanRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const loan = await prisma.loan.findUnique({ where: { id } });
+    const loan = await prisma.loan.findUnique({ where: { id }, include: { reader: true, book: true } });
     if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
     if (!loan.returnedAt) throw new HttpError(404, 'Empréstimo ainda não devolvido');
     const settings = await getSettings();
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="termo-devolucao-DEV-${String(loan.id).padStart(6, '0')}.pdf"`);
-    const doc = generateReturnTermPDF(loan, settings);
+    const doc = generateReturnTermPDF(loan as any, settings);
     doc.pipe(res);
     doc.end();
   }),
