@@ -275,21 +275,36 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
 
   let y = doc.y + 4;
 
-  y = drawSection(doc, y, '1. Situação da Devolução', (doc) => {
+  y = drawSection(doc, y, '1. Situação e Condição', (doc) => {
     doc.save();
     doc.fontSize(10).font('Helvetica-Bold').fillColor(returnStatusColor).text(returnStatus, 60, doc.y, { width: 430 });
     doc.restore();
+    doc.y = doc.y + 10;
+    drawField(doc, 'Condição do material:', conditionLabel, 60, doc.y, 300);
+    if (loan.returnObservations) {
+      doc.y = doc.y + 12;
+      doc.save();
+      doc.fontSize(7).font('Helvetica').fillColor(COLORS.gray).text('OCORRÊNCIAS:', 60, doc.y);
+      doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.ink).text(loan.returnObservations, 60, doc.y + 2, { width: 430, lineGap: 1 });
+      doc.restore();
+    }
   });
 
   y = drawSection(doc, y, '2. Dados do Empréstimo', (doc) => {
-    drawField(doc, 'Número do empréstimo:', loanNumber, 60, doc.y, 200);
-    drawField(doc, 'Número da devolução:', returnNumber, 280, doc.y - 14, 200);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Data do empréstimo:', formatDate(loan.loanDate), 60, doc.y, 200);
-    drawField(doc, 'Previsão de devolução:', formatDate(loan.dueDate), 280, doc.y - 14, 200);
-    doc.y = doc.y + 10;
-    drawField(doc, 'Devolução efetiva:', loan.returnedAt ? formatDateTime(loan.returnedAt) : '—', 60, doc.y, 200);
-    drawField(doc, 'Dias de empréstimo:', `${loanDays} dia(s)`, 280, doc.y - 14, 200);
+    const col1 = 60;
+    const col2 = 215;
+    const col3 = 370;
+    const colW = 145;
+
+    drawField(doc, 'Empréstimo:', loanNumber, col1, doc.y, colW);
+    drawField(doc, 'Devolução:', returnNumber, col2, doc.y, colW);
+    drawField(doc, 'Dias de empréstimo:', `${loanDays} dia(s)`, col3, doc.y, colW);
+
+    doc.y = doc.y + 18;
+
+    drawField(doc, 'Data do empréstimo:', formatDate(loan.loanDate), col1, doc.y, colW);
+    drawField(doc, 'Previsão devolução:', formatDate(loan.dueDate), col2, doc.y, colW);
+    drawField(doc, 'Devolução efetiva:', loan.returnedAt ? formatDateTime(loan.returnedAt) : '—', col3, doc.y, colW);
   });
 
   y = drawSection(doc, y, '3. Dados do Leitor', (doc) => {
@@ -307,18 +322,7 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
     drawField(doc, 'Código/Tombo:', `#${loan.bookNumberSnapshot || String(loan.bookId)}`, 280, doc.y - 14, 150);
   });
 
-  y = drawSection(doc, y, '5. Condição do Material', (doc) => {
-    drawField(doc, 'Condição do material:', conditionLabel, 60, doc.y, 300);
-    if (loan.returnObservations) {
-      doc.y = doc.y + 10;
-      doc.save();
-      doc.fontSize(7).font('Helvetica').fillColor(COLORS.gray).text('OCORRÊNCIAS:', 60, doc.y);
-      doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.ink).text(loan.returnObservations, 60, doc.y + 2, { width: 430, lineGap: 1 });
-      doc.restore();
-    }
-  });
-
-  y = drawSection(doc, y, '6. Registro da Devolução', (doc) => {
+  y = drawSection(doc, y, '5. Registro da Devolução', (doc) => {
     doc.save();
     doc.fontSize(8).font('Helvetica').fillColor(COLORS.ink);
     doc.text(
@@ -328,13 +332,13 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
     doc.restore();
   });
 
-  y = drawSection(doc, y, '7. Responsável pelo Recebimento', (doc) => {
+  y = drawSection(doc, y, '6. Responsável pelo Recebimento', (doc) => {
     drawField(doc, 'Servidor/Responsável:', loan.receivedByNameSnapshot || '—', 60, doc.y, 300);
     doc.y = doc.y + 10;
     drawField(doc, 'Data e hora do registro:', loan.returnedAt ? formatDateTime(loan.returnedAt) : '—', 60, doc.y, 300);
   });
 
-  y = drawSection(doc, y, '8. Assinaturas', (doc) => {
+  y = drawSection(doc, y, '7. Assinaturas', (doc) => {
     doc.save();
     doc.fontSize(8).font('Helvetica').fillColor(COLORS.ink);
 
