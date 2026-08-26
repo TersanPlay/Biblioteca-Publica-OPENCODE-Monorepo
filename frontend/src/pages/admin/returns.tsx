@@ -25,6 +25,8 @@ export function ReturnsPage() {
   const [input, setInput] = useState(q);
   const debounced = useDebounce(input, 350);
   const [returning, setReturning] = useState<Loan | null>(null);
+  const [returnCondition, setReturnCondition] = useState<string>('');
+  const [returnObservations, setReturnObservations] = useState('');
   const [busy, setBusy] = useState(false);
   const { toast } = useApiToast();
 
@@ -36,9 +38,14 @@ export function ReturnsPage() {
     if (!returning) return;
     setBusy(true);
     try {
-      await loansApi.return(returning.id);
+      await loansApi.return(returning.id, {
+        condition: returnCondition || undefined,
+        observations: returnObservations || undefined,
+      });
       toast.success('Devolução registrada', `${returning.book?.title} devolvido`);
       setReturning(null);
+      setReturnCondition('');
+      setReturnObservations('');
       refetch();
     } catch (err) {
       toast.error('Não foi possível registrar', apiErrorMessage(err));
@@ -152,7 +159,13 @@ export function ReturnsPage() {
 
       <ConfirmDialog
         open={!!returning}
-        onOpenChange={(o) => !o && setReturning(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setReturning(null);
+            setReturnCondition('');
+            setReturnObservations('');
+          }
+        }}
         title="Registrar devolução"
         description={
           returning
@@ -162,7 +175,34 @@ export function ReturnsPage() {
         confirmLabel="Receber devolução"
         loading={busy}
         onConfirm={confirmReturn}
-      />
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink/70">Condição do livro</label>
+            <select
+              value={returnCondition}
+              onChange={(e) => setReturnCondition(e.target.value)}
+              className="h-9 w-full rounded-control bg-surface px-2 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
+            >
+              <option value="">Não informado</option>
+              <option value="BOM">Bom estado</option>
+              <option value="REGULAR">Regular</option>
+              <option value="DANIFICADO">Danificado</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink/70">Observações</label>
+            <textarea
+              value={returnObservations}
+              onChange={(e) => setReturnObservations(e.target.value)}
+              placeholder="Ex.: capa com amassado, páginas marcadas..."
+              rows={2}
+              maxLength={500}
+              className="w-full rounded-control bg-surface px-2 py-1.5 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
+            />
+          </div>
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }
