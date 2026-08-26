@@ -7,6 +7,7 @@ import { requireAuth } from '../middleware/auth';
 import { writeAudit } from '../lib/audit';
 import { computeDueDate, expireReservations, refreshOverdue } from '../lib/overdue';
 import { getSettings } from '../lib/settings';
+import { generateLoanTermPDF, generateReturnTermPDF } from '../lib/terms';
 import { dateOrNull, loanBatchCreateSchema, loanCreateSchema, loanQuerySchema, loanReturnSchema, parse } from '../validation';
 
 export const loanRouter = Router();
@@ -362,5 +363,36 @@ loanRouter.post(
     });
     await writeAudit(req.user?.id, 'LOAN_RENEWED', 'Loan', id, { number: loan.number, dueDate: newDueDate }, req.ip);
     res.json({ ...renewed, number: loan.number });
+  }),
+);
+
+loanRouter.get(
+  '/:id/term',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const loan = await prisma.loan.findUnique({ where: { id } });
+    if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
+    const settings = await getSettings();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="termo-emprestimo-${loan.number || `EMP-${String(loan.id).padStart(6, '0')}`}.pdf"`);
+    const doc = generateLoanTermPDF(loan, settings.libraryName);
+    doc.pipe(res);
+    doc.end();
+  }),
+);
+
+loanRouter.get(
+  '/:id/return-term',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const loan = await prisma.loan.findUnique({ where: { id } });
+    if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
+    if (!loan.returnedAt) throw new HttpError(404, 'Empréstimo ainda não devolvido');
+    const settings = await getSettings();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="termo-devolucao-DEV-${String(loan.id).padStart(6, '0')}.pdf"`);
+    const doc = generateReturnTermPDF(loan, settings.libraryName);
+    doc.pipe(res);
+    doc.end();
   }),
 );
