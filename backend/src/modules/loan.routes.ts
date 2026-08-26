@@ -12,8 +12,6 @@ import { dateOrNull, loanBatchCreateSchema, loanCreateSchema, loanQuerySchema, l
 
 export const loanRouter = Router();
 
-loanRouter.use(requireAuth);
-
 export const loanInclude = {
   reader: true,
   book: true,
@@ -75,6 +73,7 @@ async function buildLoanSnapshots(
 
 loanRouter.get(
   '/',
+  requireAuth,
   asyncHandler(async (req, res) => {
     await refreshOverdue();
     await expireReservations();
@@ -114,6 +113,7 @@ loanRouter.get(
 
 loanRouter.get(
   '/search',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const qText = String(req.query.q || '').trim();
     if (!qText) {
@@ -143,6 +143,7 @@ loanRouter.get(
 
 loanRouter.post(
   '/',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const data = parse(loanCreateSchema, req.body);
     const userId = req.user!.id;
@@ -193,6 +194,7 @@ loanRouter.post(
 
 loanRouter.post(
   '/batch',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const data = parse(loanBatchCreateSchema, req.body);
     const userId = req.user!.id;
@@ -258,6 +260,7 @@ loanRouter.post(
 
 loanRouter.get(
   '/:id',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const loan = await prisma.loan.findUnique({ where: { id }, include: loanInclude });
@@ -268,6 +271,7 @@ loanRouter.get(
 
 loanRouter.post(
   '/:id/return',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const data = req.body && Object.keys(req.body).length > 0 ? parse(loanReturnSchema, req.body) : {};
@@ -334,6 +338,7 @@ loanRouter.post(
 
 loanRouter.post(
   '/:id/renew',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const loan = await prisma.loan.findUnique({
