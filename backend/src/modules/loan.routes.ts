@@ -124,6 +124,7 @@ loanRouter.post(
     const { loan, number } = await prisma.$transaction(async (tx) => {
       const reader = await tx.reader.findUnique({ where: { id: data.readerId } });
       if (!reader) throw new HttpError(404, 'Leitor não encontrado');
+      if (reader.deletedAt) throw new HttpError(400, 'Leitor excluido nao pode emprestar');
       if (reader.status !== 'ACTIVE') throw new HttpError(400, 'Leitor bloqueado ou inativo não pode emprestar');
 
       await assertBookEligible(tx, data.bookId, reader.id);
@@ -180,6 +181,7 @@ loanRouter.post(
     const created = await prisma.$transaction(async (tx) => {
       const reader = await tx.reader.findUnique({ where: { id: data.readerId } });
       if (!reader) throw new HttpError(404, 'Leitor não encontrado');
+      if (reader.deletedAt) throw new HttpError(400, 'Leitor excluido nao pode emprestar');
       if (reader.status !== 'ACTIVE') throw new HttpError(400, 'Leitor bloqueado ou inativo não pode emprestar');
 
       const overdue = await tx.loan.findFirst({
@@ -302,6 +304,7 @@ loanRouter.post(
     if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
     if (loan.status === 'RETURNED' || loan.returnedAt) throw new HttpError(400, 'Empréstimo já devolvido');
     if (loan.status === 'OVERDUE') throw new HttpError(400, 'Empréstimo atrasado não pode ser renovado');
+    if (loan.reader.deletedAt) throw new HttpError(400, 'Leitor excluído não pode renovar');
     if (loan.reader.status !== 'ACTIVE') throw new HttpError(400, 'Leitor bloqueado ou inativo não pode renovar');
 
     const settings = await getSettings();

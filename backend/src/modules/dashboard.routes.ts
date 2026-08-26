@@ -30,7 +30,7 @@ dashboardRouter.get(
       prisma.book.count({ where: { isArchived: false } }),
       prisma.loan.count({ where: { status: { in: ['ACTIVE', 'OVERDUE'] } } }),
       prisma.loan.count({ where: { status: 'OVERDUE' } }),
-      prisma.reader.count({ where: { status: 'ACTIVE' } }),
+      prisma.reader.count({ where: { status: 'ACTIVE', deletedAt: null } }),
       prisma.loan.findMany({
         where: { status: { in: ['ACTIVE', 'OVERDUE'] } },
         include: loanInclude,

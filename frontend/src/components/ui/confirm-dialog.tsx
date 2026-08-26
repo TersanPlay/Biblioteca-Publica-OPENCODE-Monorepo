@@ -12,6 +12,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   destructive,
   loading,
+  confirmDisabled,
   onConfirm,
   children,
 }: {
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
   children?: ReactNode;
 }) {
@@ -42,6 +44,7 @@ export function ConfirmDialog({
           <Button
             variant={destructive ? 'destructive' : 'primary'}
             loading={isBusy}
+            disabled={confirmDisabled}
             onClick={async () => {
               setBusy(true);
               try {

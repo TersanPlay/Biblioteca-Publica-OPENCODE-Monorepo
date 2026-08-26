@@ -2,9 +2,9 @@ import { Router } from 'express';
 import prisma from '../lib/prisma';
 import { HttpError } from '../lib/http-error';
 import { asyncHandler } from '../middleware/async-handler';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireRoles } from '../middleware/auth';
 import { writeAudit } from '../lib/audit';
-import { cleanNull, dateOrNull, parse, paginationSchema, readerQuerySchema, readerSchema, readerStatusSchema, readerUpdateSchema } from '../validation';
+import { cleanNull, dateOrNull, parse, paginationSchema, readerDeleteSchema, readerQuerySchema, readerSchema, readerStatusSchema, readerUpdateSchema } from '../validation';
 import { refreshOverdue } from '../lib/overdue';
 
 export const readerRouter = Router();
@@ -20,6 +20,7 @@ readerRouter.get(
   asyncHandler(async (req, res) => {
     const q = parse(readerQuerySchema, req.query);
     const where = {
+      deletedAt: null,
       ...(q.search
         ? { OR: [{ name: { contains: q.search } }, { cpf: { contains: q.search } }, { email: { contains: q.search } }] }
         : {}),
@@ -89,6 +90,7 @@ readerRouter.get(
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const where = {
       status: 'BLOCKED' as const,
+      deletedAt: null,
       ...(search
         ? { OR: [{ name: { contains: search } }, { cpf: { contains: search } }] }
         : {}),
@@ -167,6 +169,7 @@ readerRouter.put(
     const data = parse(readerUpdateSchema, req.body);
     const existing = await prisma.reader.findUnique({ where: { id } });
     if (!existing) throw new HttpError(404, 'Leitor não encontrado');
+    if (existing.deletedAt) throw new HttpError(409, 'Leitor excluído não pode ser editado');
     if (data.cpf && data.cpf !== existing.cpf) {
       const clash = await prisma.reader.findUnique({ where: { cpf: data.cpf } });
       if (clash) throw new HttpError(409, 'CPF já cadastrado');
@@ -203,6 +206,7 @@ readerRouter.patch(
     const { status, reason, category } = parse(readerStatusSchema, req.body);
     const existing = await prisma.reader.findUnique({ where: { id } });
     if (!existing) throw new HttpError(404, 'Leitor não encontrado');
+    if (existing.deletedAt) throw new HttpError(409, 'Leitor excluído não pode ter status alterado');
     const data: Record<string, unknown> = { status };
     if (status === 'BLOCKED') {
       data.blockReason = reason ?? null;
@@ -222,5 +226,63 @@ readerRouter.patch(
       category: category ?? null,
     }, req.ip);
     res.json(reader);
+  }),
+);
+
+readerRouter.delete(
+  '/:id',
+  requireRoles('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) throw new HttpError(404, 'Leitor não encontrado');
+    const { reason } = parse(readerDeleteSchema, req.body ?? {});
+    const existing = await prisma.reader.findUnique({ where: { id } });
+    if (!existing) throw new HttpError(404, 'Leitor não encontrado');
+    if (existing.deletedAt) throw new HttpError(409, 'Leitor já foi excluído');
+
+    const activeLoans = await prisma.loan.count({
+      where: { readerId: id, status: { in: ['ACTIVE', 'OVERDUE'] } },
+    });
+    if (activeLoans > 0) {
+      throw new HttpError(409, 'Leitor possui empréstimos ativos ou em atraso e não pode ser excluído');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.reservation.updateMany({
+        where: { readerId: id, status: { in: ['PENDING', 'AVAILABLE'] } },
+        data: { status: 'CANCELLED' },
+      });
+      await tx.reader.update({
+        where: { id },
+        data: {
+          name: 'Leitor excluído',
+          cpf: `EXCLUIDO-${String(id).padStart(6, '0')}`,
+          birthDate: null,
+          phone: null,
+          email: null,
+          cep: null,
+          address: null,
+          number: null,
+          neighborhood: null,
+          city: null,
+          state: null,
+          status: 'INACTIVE',
+          blockReason: null,
+          blockCategory: null,
+          blockedAt: null,
+          blockedBy: null,
+          deletedAt: new Date(),
+          anonymizedAt: new Date(),
+        },
+      });
+    });
+
+    await writeAudit(req.user?.id, 'READER_DELETED', 'Reader', id, {
+      reference: `LTR-${String(id).padStart(6, '0')}`,
+      previousName: existing.name,
+      cancelledReservations: true,
+      reason: reason ?? null,
+    }, req.ip);
+    res.json({ ok: true, deleted: true });
   }),
 );

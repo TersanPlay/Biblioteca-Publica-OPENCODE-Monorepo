@@ -35,6 +35,8 @@ model Reader {
   city         String?
   state        String?
   status       String         @default("ACTIVE")
+  deletedAt    DateTime?
+  anonymizedAt DateTime?
   blockReason  String?
   blockCategory String?
   blockedAt    DateTime?

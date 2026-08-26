@@ -1,6 +1,7 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Ban, CheckCircle2, Mail, MapPin, Pencil, Phone, UserCheck, UserRound, UserX } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { ConfirmDialog } from '../../components/ui/confirm-dialog';
@@ -15,7 +16,7 @@ import { apiErrorMessage } from '../../lib/errors';
 import { formatCPF, formatDate, formatPhone } from '../../lib/format';
 import { ReaderFormDialog } from './reader-form-dialog';
 
-type ConfirmKind = 'none' | 'block' | 'unblock' | 'deactivate' | 'activate';
+type ConfirmKind = 'none' | 'block' | 'unblock' | 'deactivate' | 'activate' | 'delete';
 
 const CONFIRM_TEXTS = {
   block: { title: 'Bloquear leitor', label: 'Bloquear', destructive: true },
@@ -28,6 +29,8 @@ const CONFIRM_TEXTS = {
   activate: { title: 'Ativar leitor', label: 'Ativar', destructive: false },
 } as const;
 
+const DELETE_PHRASE = 'EXCLUIR';
+
 export function ReaderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const readerId = Number(id);
@@ -38,7 +41,10 @@ export function ReaderDetailsPage() {
   const [busy, setBusy] = useState(false);
   const [blockCategory, setBlockCategory] = useState<string>('ATRASO_REPETIDO');
   const [blockReason, setBlockReason] = useState('');
+  const [deletePhrase, setDeletePhrase] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
   const { toast } = useApiToast();
+  const navigate = useNavigate();
 
   if (loading) return <PageSkeleton />;
 
@@ -88,6 +94,21 @@ export function ReaderDetailsPage() {
     }
   };
 
+  const deleteReader = async () => {
+    if (!reader) return;
+    setBusy(true);
+    try {
+      await readersApi.remove(reader.id, deleteReason || undefined);
+      toast.success('Leitor excluído permanentemente');
+      setConfirming({ kind: 'none' });
+      navigate('/admin/leitores');
+    } catch (err) {
+      toast.error('Não foi possível excluir', apiErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const contact = [
     { icon: Mail, label: 'E-mail', value: reader.email },
     { icon: Phone, label: 'Telefone', value: reader.phone ? formatPhone(reader.phone) : null },
@@ -114,38 +135,44 @@ export function ReaderDetailsPage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-extrabold tracking-tight text-ink">{reader.name}</h1>
-              <ReaderStatusBadge status={reader.status} />
+              {reader.deletedAt ? (
+                <Badge variant="neutral">Excluído</Badge>
+              ) : (
+                <ReaderStatusBadge status={reader.status} />
+              )}
             </div>
             <p className="mt-1 font-mono text-[13px] text-muted">{formatCPF(reader.cpf)}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link to="/admin/emprestimos/novo">
-              <Button disabled={reader.status !== 'ACTIVE'} title={reader.status !== 'ACTIVE' ? 'Leitor bloqueado ou inativo não pode realizar empréstimos' : undefined}>
-                Novo empréstimo
+          {!reader.deletedAt && (
+            <div className="flex items-center gap-2">
+              <Link to="/admin/emprestimos/novo">
+                <Button disabled={reader.status !== 'ACTIVE'} title={reader.status !== 'ACTIVE' ? 'Leitor bloqueado ou inativo não pode realizar empréstimos' : undefined}>
+                  Novo empréstimo
+                </Button>
+              </Link>
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" /> Editar
               </Button>
-            </Link>
-            <Button variant="secondary" onClick={() => setEditing(true)}>
-              <Pencil className="size-4" /> Editar
-            </Button>
-            {reader.status === 'BLOCKED' ? (
-              <Button variant="secondary" onClick={() => setConfirming({ kind: 'unblock' })}>
-                <CheckCircle2 className="size-4 text-success" /> Desbloquear
-              </Button>
-            ) : reader.status === 'ACTIVE' ? (
-              <Button variant="secondary" onClick={() => setConfirming({ kind: 'block' })}>
-                <Ban className="size-4 text-destructive" /> Bloquear
-              </Button>
-            ) : null}
-            {reader.status === 'INACTIVE' ? (
-              <Button variant="secondary" onClick={() => setConfirming({ kind: 'activate' })}>
-                <UserCheck className="size-4 text-success" /> Ativar
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => setConfirming({ kind: 'deactivate' })}>
-                <UserX className="size-4 text-destructive" /> Desativar
-              </Button>
-            )}
-          </div>
+              {reader.status === 'BLOCKED' ? (
+                <Button variant="secondary" onClick={() => setConfirming({ kind: 'unblock' })}>
+                  <CheckCircle2 className="size-4 text-success" /> Desbloquear
+                </Button>
+              ) : reader.status === 'ACTIVE' ? (
+                <Button variant="secondary" onClick={() => setConfirming({ kind: 'block' })}>
+                  <Ban className="size-4 text-destructive" /> Bloquear
+                </Button>
+              ) : null}
+              {reader.status === 'INACTIVE' ? (
+                <Button variant="secondary" onClick={() => setConfirming({ kind: 'activate' })}>
+                  <UserCheck className="size-4 text-success" /> Ativar
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => setConfirming({ kind: 'deactivate' })}>
+                  <UserX className="size-4 text-destructive" /> Desativar
+                </Button>
+              )}
+            </div>
+          )}
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {contact.map((c) => (
@@ -248,10 +275,41 @@ export function ReaderDetailsPage() {
         onSaved={() => refetch()}
       />
 
+      {!reader.deletedAt && (
+        <div className="rounded-card border border-destructive/25 bg-[#FDF4F3] p-5">
+          <h2 className="text-[15px] font-extrabold text-destructive">Zona de perigo</h2>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-bold text-ink">Excluir leitor permanentemente</p>
+              <p className="mt-0.5 max-w-2xl text-[12.5px] leading-relaxed text-muted">
+                Os dados cadastrais deste leitor serão excluídos. Empréstimos, devoluções, reservas,
+                multas e demais registros históricos serão preservados para fins administrativos,
+                estatísticos, de auditoria e relatórios.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => setConfirming({ kind: 'delete' })}>
+              <UserX className="size-4 text-destructive" /> Excluir leitor
+            </Button>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         open={confirming.kind !== 'none'}
-        onOpenChange={(o) => !o && setConfirming({ kind: 'none' })}
-        title={confirming.kind !== 'none' ? CONFIRM_TEXTS[confirming.kind].title : ''}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirming({ kind: 'none' });
+            setDeletePhrase('');
+            setDeleteReason('');
+          }
+        }}
+        title={
+          confirming.kind === 'delete'
+            ? 'Excluir leitor permanentemente'
+            : confirming.kind !== 'none'
+              ? CONFIRM_TEXTS[confirming.kind].title
+              : ''
+        }
         description={
           confirming.kind === 'block'
             ? `${reader.name} não poderá realizar novos empréstimos até ser desbloqueado.`
@@ -259,14 +317,27 @@ export function ReaderDetailsPage() {
               ? `${reader.name} voltará a poder realizar empréstimos.`
               : confirming.kind === 'deactivate'
                 ? `${reader.name} ficará inativo e não poderá realizar novos empréstimos. O histórico será preservado.`
-                : `${reader.name} voltará ao status ativo e poderá realizar empréstimos.`
+                : confirming.kind === 'activate'
+                  ? `${reader.name} voltará ao status ativo e poderá realizar empréstimos.`
+                  : 'Esta ação é permanente e não pode ser desfeita.'
         }
         confirmLabel={
-          confirming.kind === 'none' ? '' : CONFIRM_TEXTS[confirming.kind].label
+          confirming.kind === 'delete'
+            ? 'Excluir permanentemente'
+            : confirming.kind !== 'none'
+              ? CONFIRM_TEXTS[confirming.kind].label
+              : ''
         }
-        destructive={confirming.kind !== 'none' && CONFIRM_TEXTS[confirming.kind].destructive}
+        destructive={confirming.kind !== 'none' && (confirming.kind === 'delete' || CONFIRM_TEXTS[confirming.kind].destructive)}
         loading={busy}
-        onConfirm={confirming.kind === 'block' || confirming.kind === 'unblock' ? toggleBlock : toggleStatus}
+        confirmDisabled={confirming.kind === 'delete' && deletePhrase.trim().toUpperCase() !== DELETE_PHRASE}
+        onConfirm={
+          confirming.kind === 'block' || confirming.kind === 'unblock'
+            ? toggleBlock
+            : confirming.kind === 'delete'
+              ? deleteReader
+              : toggleStatus
+        }
       >
         {confirming.kind === 'block' && (
           <div className="space-y-3 py-2">
@@ -291,6 +362,36 @@ export function ReaderDetailsPage() {
                 placeholder="Descreva o motivo do bloqueio..."
                 rows={3}
                 className="w-full rounded-control bg-surface px-3 py-2 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
+              />
+            </div>
+          </div>
+        )}
+        {confirming.kind === 'delete' && (
+          <div className="space-y-4 py-2">
+            <ul className="space-y-1 rounded-card bg-surfaceWarm p-3 text-[12.5px] leading-relaxed text-muted">
+              <li>• Nome, CPF, contato e endereço serão removidos de forma irreversível.</li>
+              <li>• Empréstimos, devoluções, reservas canceladas e registros históricos serão preservados.</li>
+              <li>• A exclusão ficará registrada na auditoria com sua conta e a referência histórica do leitor.</li>
+            </ul>
+            <div>
+              <label className="mb-1 block text-[12px] font-bold text-muted">Motivo (opcional)</label>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Motivo administrativo, legal ou jurídico..."
+                rows={2}
+                className="w-full rounded-control bg-surface px-3 py-2 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-bold text-destructive">
+                Digite <span className="font-mono">{DELETE_PHRASE}</span> para confirmar
+              </label>
+              <input
+                value={deletePhrase}
+                onChange={(e) => setDeletePhrase(e.target.value)}
+                placeholder={DELETE_PHRASE}
+                className="h-9 w-full rounded-control bg-surface px-3 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#C03A2B]"
               />
             </div>
           </div>

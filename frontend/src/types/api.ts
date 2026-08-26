@@ -117,6 +117,7 @@ export interface Reader {
   city: string | null;
   state: string | null;
   status: ReaderStatus;
+  deletedAt: string | null;
   createdAt: string;
   activeLoans?: number;
 }

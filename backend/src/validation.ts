@@ -179,6 +179,10 @@ export const readerSchema = z.object({
 
 export const readerUpdateSchema = readerSchema.partial();
 
+export const readerDeleteSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
 export const loanCreateSchema = z.object({
   readerId: z.number().int(),
   bookId: z.number().int(),

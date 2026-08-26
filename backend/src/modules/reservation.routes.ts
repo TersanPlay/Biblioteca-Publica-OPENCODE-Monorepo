@@ -48,6 +48,7 @@ reservationRouter.post(
     const data = parse(reservationCreateSchema, req.body);
     const reader = await prisma.reader.findUnique({ where: { id: data.readerId } });
     if (!reader) throw new HttpError(404, 'Leitor não encontrado');
+    if (reader.deletedAt) throw new HttpError(400, 'Leitor excluído não pode reservar');
     if (reader.status !== 'ACTIVE') throw new HttpError(400, 'Leitor bloqueado não pode reservar');
     const book = await prisma.book.findUnique({ where: { id: data.bookId } });
     if (!book) throw new HttpError(404, 'Livro não encontrado');

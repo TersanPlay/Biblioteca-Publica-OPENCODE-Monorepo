@@ -141,6 +141,8 @@ export const readersApi = {
     Promise.all(ids.map((id) => api.patch(`/readers/${id}/status`, { status: 'ACTIVE' }))),
   setStatus: (id: number, status: 'ACTIVE' | 'INACTIVE') =>
     api.patch<Reader>(`/readers/${id}/status`, { status }).then((r) => r.data),
+  remove: (id: number, reason?: string) =>
+    api.delete<{ ok: boolean }>(`/readers/${id}`, { data: { reason } }).then((r) => r.data),
   blocked: (params?: Params) =>
     api.get<Paginated<BlockedReader>>('/readers/blocked', { params }).then((r) => r.data),
 };
