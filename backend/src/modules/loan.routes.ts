@@ -373,6 +373,7 @@ loanRouter.post(
 
 loanRouter.get(
   '/:id/term',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const loan = await prisma.loan.findUnique({ where: { id } });
@@ -388,6 +389,7 @@ loanRouter.get(
 
 loanRouter.get(
   '/:id/return-term',
+  requireAuth,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const loan = await prisma.loan.findUnique({ where: { id } });
