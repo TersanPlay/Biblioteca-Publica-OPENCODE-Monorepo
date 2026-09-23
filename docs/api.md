@@ -50,12 +50,12 @@ Público para leitura; escrita exige autenticação.
 | GET | `/api/books/cover` | — | Busca capa/dados na Amazon por ISBN. Rate limit: 30/15 min. `404` se não achar |
 | GET | `/api/books/exists` | ✅ | Verifica ISBN cadastrado: `?isbn=&exclude=` → `{ book }` ou `{ book: null }` |
 | GET | `/api/books/:id` | — | Detalhe + últimos 10 empréstimos + `hasActiveLoan` |
-| POST | `/api/books` | ✅ | Cria livro (autores, categorias e áreas de conhecimento por nome inclusos) |
-| PUT | `/api/books/:id` | ✅ | Atualiza livro (autores, categorias e áreas de conhecimento reatribuídos) |
+| POST | `/api/books` | ✅ | Cria livro (autores e categorias por nome inclusos) |
+| PUT | `/api/books/:id` | ✅ | Atualiza livro (autores e categorias reatribuídos) |
 | DELETE | `/api/books/:id` | ✅ | Arquiva (soft delete): `{ ok, isArchived: true }` |
 | PATCH | `/api/books/:id/restore` | ✅ | Desarquiva: `{ ok, isArchived: false }` |
 
-Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `categoryId`, `availability` (`available`/`unavailable`), `format` (`CAPA`/`BROCHURA`/`ESPIRAL`), `sort` (`newest` [padrão]/`oldest`/`title`), `includeArchived` (bool).
+Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `categoryId`, `availability` (`available`/`unavailable`), `sort` (`newest` [padrão]/`oldest`/`title`), `includeArchived` (bool).
 
 `POST/PUT /books` — corpo:
 
@@ -72,7 +72,6 @@ Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `ca
   "language": "pt-BR",
   "pages": 256,
   "coverUrl": null,
-  "format": "CAPA",
   "volume": "Vol. 1",
   "cdd": "869.9",
   "cutter": "M338d",
@@ -82,26 +81,16 @@ Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `ca
   "categoryIds": [3],
   "categoryNames": ["Ficção científica"],
   "authorIds": [1, 2],
-  "authorNames": ["Machado de Assis"],
-  "knowledgeAreaIds": [1],
-  "knowledgeAreaNames": ["Ciências Humanas"]
+  "authorNames": ["Machado de Assis"]
 }
 ```
 
 - `authorNames` cria autores novos ao salvar (find-or-create case-insensitive); nomes existentes são reutilizados.
 - `categoryIds`/`categoryNames` seguem o mesmo padrão (livro pode ter N categorias — relação `BookCategory`).
-- `knowledgeAreaIds`/`knowledgeAreaNames` seguem o mesmo padrão (livro pode ter N áreas de conhecimento — relação `BookKnowledgeArea`).
-- `format`: `CAPA`, `BROCHURA` ou `ESPIRAL` (validado por Zod; armazenado como String no SQLite).
 - `acquisitionType`: `COMPRA`, `DOACAO`, `REPOSICAO`, `PRODUCAO_INTERNA`, `TROCA`, `EMPRESTIMO_BIBLIOTECAS`, `LICITACAO`, `PERMUTA` ou `CONVENIO`.
 - ISBN normalizado (espaços/hífens removidos, dígito verificador validado).
 - Livro duplicado por ISBN → `409` com `{ error, code: 'BOOK_ALREADY_EXISTS', duplicate: { id, titulo, isbn10, isbn13 } }`.
-- `GET /books/cover?isbn=...` → `{ coverUrl, title, subtitle, isbn13, description, publisher, publicationYear }`.
-
-## Knowledge Areas — leitura pública
-
-| Método | Rota | Auth | Descrição |
-|---|---|---|---|
-| GET | `/api/knowledge-areas` | — | Lista todas as áreas de conhecimento (sem paginação) |
+- `GET /books/cover?isbn=...` → `{ coverUrl, title, subtitle, isbn13, description, publisher, publicationYear, pages, authors, categories }`.
 
 ## Authors — autenticação
 
@@ -162,7 +151,7 @@ Corpo de criação: `{ name, cpf, birthDate?, phone?, email?, cep?, address?, nu
 ```
 
 - `condition`: `BOM`, `REGULAR` ou `DANIFICADO`
-- `observations`: texto livre (até 1000 caracteres)
+- `observations`: texto livre (até 500 caracteres)
 
 Regras comuns (falha → `400` sem criar nada):
 - Leitor deve existir e estar `ACTIVE`.
@@ -256,19 +245,14 @@ Parâmetros: `type` (obrigatório) + `start`, `end`, `categoryId`, `bookId`, `re
 ]
 ```
 
-Backups automáticos: dois agendamentos diários via `node-cron` (18:30 e 23:45). Arquivos em `backend/backups/`. Validação de `filename`: regex `^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$`. Upload usa `multer` com storage temporário em `backups/.tmp/`.
+Backups automáticos: dois agendamentos diários via `node-cron` (18:30 e 23:45). Arquivos em `apps/api/backups/`. Validação de `filename`: regex `^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.sqlite$`. Upload usa `multer` com storage temporário em `backups/.tmp/`.
 
 ---
 
-## Discrepâncias conhecidas frontend × backend
+## Conformidade frontend × backend
 
-O frontend (`features/api.ts`) expõe chamadas para rotas que **não existem** no backend (retornariam 404):
-
-| Chamada do frontend | Rota real no backend |
-|---|---|
-| `PATCH /authors/:id/deactivate` e `…/reactivate` | `PATCH /authors/:id/status` `{ isActive }` |
-| `PATCH /categories/:id/deactivate` e `…/reactivate` | `PATCH /categories/:id/status` `{ status }` |
-| `PATCH /users/:id/deactivate` e `…/reactivate` | Não existe; usar `PUT /users/:id` com `status` |
-| `PATCH /reservations/:id/cancel` e `…/fulfill` | `POST /reservations/:id/cancel` e `POST /reservations/:id/fulfill` |
-
-Impacto: os toggles de ativar/desativar usuários, autores e categorias nas telas de admin, e as ações de cancelar/atender reserva na tela Reservas, falham com 404 se acionados. A documentação acima reflete a API real do backend.
+O frontend (`apps/web/src/features/<dominio>/api.ts`) chama exatamente as rotas
+documentadas acima: `PATCH /authors/:id/status` (`{ isActive }`),
+`PATCH /categories/:id/status` (`{ status }`), `PUT /users/:id` (com `status`
+para ativar/desativar) e `POST /reservations/:id/cancel|fulfill`. Não há
+divergência conhecida entre as camadas.

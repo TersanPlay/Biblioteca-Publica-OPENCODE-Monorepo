@@ -6,7 +6,7 @@ Aplicação web de duas camadas para gestão de biblioteca pública:
 
 ```
 ┌──────────────┐   HTTP/JSON (axios)   ┌──────────────┐   Prisma ORM   ┌────────────┐
-│  Frontend    │ ─────────────────────► │  Backend     │ ─────────────► │  SQLite    │
+│  Web         │ ─────────────────────► │  API         │ ─────────────► │  SQLite    │
 │  React + Vite│ ◄───────────────────── │  Express API │ ◄───────────── │  dev.db    │
 └──────────────┘        JWT Bearer      └──────────────┘                └────────────┘
    http://localhost:5173                   http://localhost:3333/api
@@ -14,12 +14,12 @@ Aplicação web de duas camadas para gestão de biblioteca pública:
 
 - O frontend é uma SPA (Vite dev na porta 5173) com proxy `/api` → porta 3333 em desenvolvimento.
 - O backend expõe uma API REST sob a URL base `/api` (porta 3333).
-- O banco é SQLite via Prisma (`backend/prisma/dev.db`), preparado para migração a PostgreSQL.
+- O banco é SQLite via Prisma (`apps/api/prisma/dev.db`), preparado para migração a PostgreSQL.
 - Autenticação stateless: JWT assinado, enviado como `Authorization: Bearer <token>`.
 
 ## Stack
 
-### Backend (`backend/`)
+### API (`apps/api/`)
 
 | Camada | Tecnologia |
 |---|---|
@@ -27,14 +27,14 @@ Aplicação web de duas camadas para gestão de biblioteca pública:
 | HTTP | Express 4 |
 | ORM | Prisma 5 (`@prisma/client`) |
 | Banco | SQLite (arquivo `dev.db`), schema em `prisma/schema.prisma` |
-| Validação | Zod 3 (`src/validation.ts`) |
+| Validação | Zod 3 (`src/validation.ts`: `parse()` + reexporta `@library/shared`) |
 | Autenticação | JWT (`jsonwebtoken`) + bcryptjs |
 | PDF | `pdfkit` (geração de termos de empréstimo e devolução) |
 | Rate limit | `express-rate-limit` (login e consulta de capa) |
 | Upload | `multer` (restauração de backup por arquivo local) |
 | Cron | `node-cron` (backups automáticos 18:30 e 23:45) |
 
-### Frontend (`frontend/`)
+### Web (`apps/web/`)
 
 | Camada | Tecnologia |
 |---|---|
@@ -43,65 +43,62 @@ Aplicação web de duas camadas para gestão de biblioteca pública:
 | Estilo | Tailwind CSS 3 + Radix UI (dialogs, selects, tabs, switch) + Lucide React |
 | Formulários | React Hook Form + Zod resolvers |
 | Rotas | React Router 6 |
-| HTTP | Axios (`src/services/axios.ts`) |
+| HTTP | Axios (`src/services/api-client.ts`; `axios.ts` reexporta por compatibilidade) |
 
 ### UI/UX
 
 Metodologia UI Architect ASJ: canvas `#F2F2F0`, primary `#087F8C`, superfícies creme, hairline, motion refinado. Tokens em Tailwind (`tailwind.config`).
 
-## Estrutura de diretórios
+## Estrutura de diretórios (monorepo pnpm)
 
 ```
-backend/
+apps/api/
   prisma/
-    schema.prisma        Modelos do banco
+    schema.prisma        Modelos do banco (`output` do client → `src/generated/prisma`)
     seed.ts              Bootstrap estrutural (config + admin via env)
   scripts/
-    smoke.ts             Suite E2E via API (63 casos)
+    smoke.ts             Suite E2E via API (62 casos)
     import-books.ts      Importação de livros de planilha
     dedupe-books.ts      Utilitário de deduplicação de ISBN
-    delete-reader-e2e.ts E2E de exclusão de leitor
+    delete-reader-e2e.ts E2E de exclusão de leitor (15 casos)
+    copy-generated.mjs   Copia o Prisma Client gerado para `dist/` no build
   src/
-    server.ts            Bootstrap HTTP
+    server.ts            Bootstrap HTTP (usa `config/env.ts`)
     app.ts               Montagem dos routers, CORS, handlers de erro
-    validation.ts        Todos os schemas Zod + helpers (CPF, ISBN)
-    lib/
-      prisma.ts          Cliente Prisma
-      http-error.ts      HttpError (status + message)
-      audit.ts           writeAudit()
-      settings.ts        getSettings() (regras de empréstimo)
-      overdue.ts         refreshOverdue(), expireReservations(), computeDueDate()
-      cover.ts           Resolução de capa na Amazon (ISBN → capa/dados)
-      terms.ts           Geração de PDFs: Termo de Empréstimo e Termo de Devolução (pdfkit)
-    middleware/
-      auth.ts            signToken(), requireAuth, requireRoles
-      login-rate-limit.ts
-      cover-rate-limit.ts
-      error-handler.ts   notFoundHandler + errorHandler
-      async-handler.ts
-    modules/             Um router por domínio (ver docs/modulos.md)
+    validation.ts        `parse()` + reexporta `@library/shared`
+    config/env.ts        Env centralizado + `jwtSecret()`
+    infrastructure/      Reexports centrais: database (prisma), http
+                         (http-error, async-handler, error-handler), pdf
+                         (terms), covers, audit, loans (overdue), settings
+    lib/                 Implementações: prisma, http-error, audit (writeAudit),
+                         settings (getSettings), overdue (refreshOverdue,
+                         expireReservations, computeDueDate), cover, terms (pdfkit)
+    middleware/          auth (signToken, requireAuth, requireRoles),
+                         login/cover rate-limit, error-handler, async-handler
+    modules/<dominio>/   Um router por domínio (ver docs/modulos.md)
   backups/               Backups do banco (.sqlite)
 
-frontend/
+apps/web/
   src/
     app/router/          Rotas (routes.tsx) e guardas (guards.tsx)
-    components/
-      layout/            AdminLayout, PublicLayout
-      ui/                Botões, badges, dialogs (ConfirmDialog), toast, spinners...
-    features/
-      api.ts             Clientes por entidade (booksApi, loansApi, readersApi, backupsApi, ...)
-      auth/              auth-provider (login/logout, sessão)
-      hooks/             use-async-data (carregamento genérico com loading/error/refetch)
-    pages/               Páginas públicas e do admin (ver docs/modulos.md)
-    services/
-      axios.ts           Instância axios + interceptor JWT + logout em 401
-    types/api.ts         Tipos das entidades da API
+    components/layout/   AdminLayout, PublicLayout, BookCover, CatalogBookCard
+    features/<dominio>/  `api.ts` (clientes HTTP) + `pages/` (páginas)
+    features/api.ts      Barrel que reexporta os clientes por domínio
+    features/http.ts     `Params` + `cleanPayload`
+    services/api-client.ts  Axios central + interceptor JWT + logout em 401
+    types/api.ts         Reexporta `@library/shared` (compatibilidade)
+    pages/admin/*        Shims que reexportam `features/<dominio>/pages/`
+
+packages/shared/         Tipos TS, schemas Zod e constantes (`@library/shared`);
+                         build CJS em `dist/` (API); web consome o fonte via alias Vite
+packages/ui/             Design System Radix + tokens (`@library/ui`)
+packages/config/         ESLint compartilhado (`@library/config`)
 ```
 
 ## Fluxo de dados
 
-1. A SPA chama os clientes de `features/api.ts` (ex.: `loansApi.createBatch`).
-2. O interceptor de `services/axios.ts` injeta `Authorization: Bearer <token>` do `localStorage` (`livraria_token`).
+1. A SPA chama os clientes de `features/<dominio>/api.ts` (ex.: `loansApi.createBatch`).
+2. O interceptor de `services/api-client.ts` injeta `Authorization: Bearer <token>` do `localStorage` (`livraria_token`).
 3. O Express roteia para o módulo correspondente (`app.ts` monta `/api/<recurso>`).
 4. O corpo/query é validado com Zod (`parse`); falha → `400` com `{ error }`.
 5. A rota executa a regra de negócio via Prisma (SQLite), geralmente em `$transaction`.
@@ -136,7 +133,7 @@ Aplicação no backend: `requireRoles('ADMIN')` em users, categories (escrita), 
 
 - Backups automáticos: `node-cron` agenda dois horários diários (18:30 e 23:45).
 - Mecanismo: `VACUUM INTO` (SQLite 3.27+) — seguro com escritas concorrentes.
-- Armazenamento: `backend/backups/` com arquivos `backup_YYYY-MM-DD_HH-mm.sqlite`.
+- Armazenamento: `apps/api/backups/` com arquivos `backup_YYYY-MM-DD_HH-mm.sqlite`.
 - Rotação: mantém apenas os 5 backups mais recentes; os antigos são deletados automaticamente.
 - Download: `GET /api/backups/:filename/download` — stream do arquivo via `res.download`.
 - Upload: `POST /api/backups/restore-upload` — multipart via `multer` (campo `file`, `.sqlite`/`.db`, máx. 100 MB). Storage temporário em `backups/.tmp/`.
@@ -173,26 +170,30 @@ Formato padrão de erro: `{ "error": "<mensagem>" }`.
 
 ## Consistência de prazos (overdue/reservas)
 
-- `refreshOverdue()` marca como `OVERDUE` empréstimos `ACTIVE` com `dueDate` vencida e sem devolução. Roda em: `GET /loans`, `GET /loans/search`, `POST /loans`, `POST /loans/batch`, `POST /loans/:id/return`, `GET /readers/:id`, `GET /dashboard`, `GET /reports`.
-- `expireReservations()` marca como `EXPIRED` reservas `PENDING` vencidas (`expiresAt` = 3 dias). Roda em: `GET /reservations`, `GET /loans`, `GET /loans/search`.
+- `refreshOverdue()` marca como `OVERDUE` empréstimos `ACTIVE` com `dueDate` vencida e sem devolução. Roda em: `GET /loans`, `GET /loans/search`, `POST /loans`, `POST /loans/batch`, `GET /readers/:id`, `GET /dashboard`, `GET /reports`.
+- `expireReservations()` marca como `EXPIRED` reservas `PENDING` vencidas (`expiresAt` = 3 dias). Roda em: `GET /reservations`, `GET /loans`.
 
 ## Ambiente
 
-### Backend (`backend/.env`)
+### API (`apps/api/.env`)
 
 ```
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="file:C:/caminho/ate/o/repo/apps/api/prisma/dev.db"
 JWT_SECRET=<segredo forte>
 JWT_EXPIRES=8h            # opcional
 ADMIN_NAME=Administrador   # opcional
 ADMIN_EMAIL=voce@dominio.com
 ADMIN_PASSWORD=sua-senha
 CORS_ORIGIN=http://localhost:5173   # opcional, lista separada por vírgula
+PORT=3333                 # opcional
 ```
+
+> `DATABASE_URL` deve ser **caminho absoluto**: o Prisma CLI resolve `file:` em
+> relação ao schema, mas o runtime resolve em relação ao cwd.
 
 > O seed **não cria usuário** sem `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Sem credenciais padrão — ver docs/regras-de-negocio.md.
 
-### Frontend (`frontend/.env`)
+### Web (`apps/web/.env`)
 
 ```
 VITE_API_URL=http://localhost:3333/api   # opcional; padrão '/api' (proxy)

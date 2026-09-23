@@ -8,12 +8,40 @@ Sistema web para gestão de biblioteca pública: acervo, leitores, exemplares, e
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + Radix UI + Lucide React + React Router + Axios + React Hook Form + Zod
 - **UI/UX**: metodologia UI Architect ASJ (canvas `#F2F2F0`, primary `#087F8C`, superfícies creme, hairline, motion refinado)
 
-## Estrutura
+## Estrutura (monorepo pnpm)
 
 ```
-backend/   API REST (porta 3333, URL base /api)
-frontend/  SPA (Vite dev na porta 5173, proxy /api → 3333)
+/
+├── apps/
+│   ├── web/                  SPA React/Vite (porta 5173, proxy /api → 3333)
+│   │   └── src/
+│   │       ├── features/<dominio>/api.ts      clientes HTTP por domínio
+│   │       ├── features/<dominio>/pages/      páginas por domínio
+│   │       ├── services/api-client.ts         Axios central + JWT
+│   │       └── types/api.ts                   reexporta @library/shared
+│   └── api/                  Express + Prisma (porta 3333, URL base /api)
+│       ├── prisma/           schema.prisma, seed.ts, dev.db
+│       └── src/
+│           ├── modules/<dominio>/<dominio>.routes.ts
+│           ├── config/env.ts                  env + JWT centralizados
+│           ├── infrastructure/                prisma, http, pdf, covers, audit
+│           └── validation.ts                  parse() + reexporta @library/shared
+├── packages/
+│   ├── shared/               tipos, schemas Zod, constantes (@library/shared)
+│   ├── ui/                   Design System Radix (@library/ui)
+│   └── config/               ESLint compartilhado (@library/config)
+├── docs/                     arquitetura, API, regras, módulos, testes
+├── infra/                    reservado p/ deploy (não exigido p/ rodar)
+├── scripts/                  verify-workspaces.mjs
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+└── .env.example
 ```
+
+> Compatibilidade: `apps/web/src/components/ui/*`, `features/api.ts`, `types/api.ts`
+> e `pages/admin/*` são shims que reexportam dos novos locais — imports antigos
+> continuam funcionando. O Prisma Client é gerado em
+> `apps/api/src/generated/prisma` (ver `DATABASE_URL` abaixo).
 
 ---
 
@@ -22,9 +50,10 @@ frontend/  SPA (Vite dev na porta 5173, proxy /api → 3333)
 | Requisito | Versão mínima | Como verificar |
 |-----------|---------------|----------------|
 | **Node.js** | 18+ | `node --version` |
-| **npm** | 9+ | `npm --version` |
+| **pnpm** | 9+ | `pnpm --version` |
 
-> O projeto foi testado com Node.js 24.x e npm 11.x. Versões mais antigas (18+) devem funcionar.
+> O projeto foi testado com Node.js 24.x e pnpm 10.x. Use pnpm nos workspaces
+> (o `packageManager` está fixado no `package.json` da raiz).
 
 ---
 
@@ -39,21 +68,21 @@ cd Biblioteca-Publica-OPENCODE
 
 ### 2. Configurar o Backend
 
-#### 2.1 Instalar dependências
+#### 2.1 Instalar dependências (raiz do monorepo)
 
 ```bash
-cd backend
-npm install
+pnpm install
 ```
 
-> O `postinstall` gera automaticamente o Prisma Client.
+> O `postinstall` compila `@library/shared` e gera automaticamente o Prisma Client
+> em `apps/api/src/generated/prisma`.
 
 #### 2.2 Criar o arquivo `.env`
 
-Crie o arquivo `backend/.env` com o seguinte conteúdo:
+Crie o arquivo `apps/api/.env` com o seguinte conteúdo (veja `.env.example` na raiz):
 
 ```env
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="file:C:/caminho/ate/o/repo/apps/api/prisma/dev.db"
 JWT_SECRET=cole-um-segredo-forte-aqui-minimo-32-caracteres
 ADMIN_NAME=Administrador
 ADMIN_EMAIL=seu@email.com
@@ -62,7 +91,7 @@ ADMIN_PASSWORD=sua-senha-forte
 
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
-| `DATABASE_URL` | Sim | Caminho do banco SQLite. Use `"file:./dev.db"` para desenvolvimento |
+| `DATABASE_URL` | Sim | Caminho do banco SQLite. **Use caminho absoluto** (`file:C:/.../apps/api/prisma/dev.db`): o Prisma CLI resolve `file:` em relação ao schema, mas o runtime resolve em relação ao cwd — o caminho absoluto funciona nos dois. Gerencie pelo seed/setup abaixo |
 | `JWT_SECRET` | Sim | Chave secreta para assinar tokens JWT. Use uma string aleatória de no mínimo 32 caracteres |
 | `ADMIN_EMAIL` | Sim | E-mail do primeiro administrador. Será usado para fazer login |
 | `ADMIN_PASSWORD` | Sim | Senha do primeiro administrador. Mínimo 6 caracteres |
@@ -78,7 +107,7 @@ ADMIN_PASSWORD=sua-senha-forte
 #### 2.3 Configurar o banco de dados
 
 ```bash
-npm run db:setup
+pnpm --filter @library/api db:setup
 ```
 
 Esse comando:
@@ -88,7 +117,11 @@ Esse comando:
 #### 2.4 Iniciar o servidor
 
 ```bash
-npm run dev
+# raiz: sobe API + web juntos
+pnpm dev
+
+# ou só a API
+pnpm dev:api
 ```
 
 O backend estará disponível em: **http://localhost:3333/api**
@@ -101,12 +134,10 @@ curl http://localhost:3333/api/health
 
 ### 3. Configurar o Frontend
 
-Em um novo terminal:
+O `pnpm install` da raiz já instala o web. Em um novo terminal:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+pnpm dev:web
 ```
 
 O frontend estará disponível em: **http://localhost:5173**
@@ -129,28 +160,38 @@ O frontend estará disponível em: **http://localhost:5173**
 
 ---
 
-## Comandos úteis
-
-### Backend
+## Comandos úteis (raiz do monorepo)
 
 | Comando | Descrição |
 |---------|-----------|
-| `npm run dev` | Inicia o servidor com hot-reload (tsx watch) |
-| `npm run build` | Compila TypeScript para JavaScript (produção) |
-| `npm start` | Inicia o servidor em produção (requer `npm run build` antes) |
-| `npm run db:setup` | Cria banco + aplica schema + roda seed |
-| `npm run db:push` | Aplica mudanças do schema sem seed |
-| `npm run db:seed` | Roda apenas o seed (cria admin se `.env` configurado) |
-| `npm run smoke` | Executa a suíte de testes E2E (63 casos) |
-| `npx tsc --noEmit` | Verifica tipos sem gerar output |
+| `pnpm dev` | Sobe API + web juntos (com hot-reload) |
+| `pnpm dev:api` | Só a API (tsx watch em `apps/api`) |
+| `pnpm dev:web` | Só o web (Vite em `apps/web`) |
+| `pnpm build` | Compila shared → API → web |
+| `pnpm typecheck` | Tipos em todos os workspaces |
+| `pnpm lint` | ESLint do monorepo |
+| `node scripts/verify-workspaces.mjs` | Checa workspaces e contratos |
 
-### Frontend
+### API (`apps/api`, ou `pnpm --filter @library/api <cmd>`)
 
 | Comando | Descrição |
 |---------|-----------|
-| `npm run dev` | Inicia o servidor de desenvolvimento Vite |
-| `npm run build` | Compila para produção (verifica tipos + gera `dist/`) |
-| `npm run preview` | Visualiza a build de produção localmente |
+| `pnpm dev` | Inicia o servidor com hot-reload (tsx watch) |
+| `pnpm build` | Compila TypeScript p/ `dist/` + copia o Prisma Client gerado |
+| `pnpm start` | Inicia em produção (`node dist/src/server.js`, requer build) |
+| `pnpm db:setup` | Cria banco + aplica schema + roda seed |
+| `pnpm db:push` | Aplica mudanças do schema sem seed |
+| `pnpm db:seed` | Roda apenas o seed (cria admin se `.env` configurado) |
+| `pnpm smoke` | Executa a suíte de testes E2E (62 casos) |
+| `pnpm typecheck` | Verifica tipos sem gerar output |
+
+### Web (`apps/web`, ou `pnpm --filter @library/web <cmd>`)
+
+| Comando | Descrição |
+|---------|-----------|
+| `pnpm dev` | Inicia o servidor de desenvolvimento Vite |
+| `pnpm build` | Compila para produção (verifica tipos + gera `dist/`) |
+| `pnpm preview` | Visualiza a build de produção localmente |
 
 > **Nota sobre PDFs**: A geração de Termos de Empréstimo/Devolução é feita no backend via `pdfkit`. Os PDFs são gerados dinamicamente e servidos como blobs autenticados — não há armazenamento de arquivos PDF no servidor.
 
@@ -158,7 +199,7 @@ O frontend estará disponível em: **http://localhost:5173**
 
 ## Variáveis de ambiente do Frontend
 
-Crie `frontend/.env` (opcional):
+Crie `apps/web/.env` (opcional):
 
 ```env
 VITE_API_URL=http://localhost:3333/api
@@ -188,21 +229,26 @@ kill -9 <PID>
 
 ### `[fatal] JWT_SECRET ausente`
 
-O arquivo `backend/.env` não existe ou está vazio. Crie-o seguindo a seção 2.2.
+O arquivo `apps/api/.env` não existe ou está vazio. Crie-o seguindo a seção 2.2.
 
 ### Seed não cria usuário administrador
 
-Verifique se `ADMIN_EMAIL` e `ADMIN_PASSWORD` estão definidos no `backend/.env` antes de rodar `npm run db:seed`. Sem essas variáveis, o seed cria apenas a configuração inicial.
+Verifique se `ADMIN_EMAIL` e `ADMIN_PASSWORD` estão definidos no `apps/api/.env` antes de rodar `pnpm --filter @library/api db:seed`. Sem essas variáveis, o seed cria apenas a configuração inicial.
 
-### `npm install` falha com "Invalid Version"
+### Erro `P2021` (tabela não existe) após migrar / em produção
 
-Possível lockfile corrompido (gerado por outra package manager). Solução:
+O `DATABASE_URL` relativo (`file:./dev.db`) é resolvido de forma diferente pelo
+Prisma CLI (relativo ao schema) e pelo runtime (relativo ao cwd). Use **caminho
+absoluto** no `apps/api/.env`, conforme a seção 2.2.
+
+### `pnpm install` falha
+
+Possível lockfile corrompido. Solução:
 
 ```bash
-cd frontend
-del package-lock.json   # Windows
-rm package-lock.json    # Linux/Mac
-npm install
+del pnpm-lock.yaml   # Windows
+rm pnpm-lock.yaml    # Linux/Mac
+pnpm install
 ```
 
 ### Buscas textuais não encontram registros
@@ -243,8 +289,7 @@ Cadastrar livro → cadastrar leitor → realizar empréstimo → gerar Termo de
 - Autores: o formulário aceita nomes separados por vírgulas; nomes não
   cadastrados são criados automaticamente ao salvar, reaproveitando o autor
   existente quando o nome bate ignorando maiúsculas
-- Áreas de conhecimento: mesmo padrão dos autores (find-or-create, relação N:N)
-- Livros possuem campos expandidos: formato (CAPA/BROCHURA/ESPIRAL), volume, CDD, cutter, localização física, cópias disponíveis, tipo de aquisição
+- Livros possuem campos expandidos: volume, CDD, cutter, localização física, cópias disponíveis, tipo de aquisição
 - Exclusão de leitores com anonimização LGPD (ADMIN apenas): dados pessoais substituídos, empréstimos ativos bloqueiam exclusão
 - Termos de empréstimo/devolução: PDFs gerados dinamicamente com snapshots, acessíveis pelo histórico do leitor
 - Devolução com registro de condição do material (BOM/REGULAR/DANIFICADO) e observações
@@ -258,14 +303,14 @@ Cadastrar livro → cadastrar leitor → realizar empréstimo → gerar Termo de
 Detalhes em [docs/testes.md](docs/testes.md). Resumo:
 
 ```bash
-# Backend — testes E2E (requer backend rodando)
-cd backend && npm run smoke
+# API — testes E2E (sobe servidor próprio efêmero, sem precisar rodar a API antes)
+pnpm --filter @library/api smoke
 
-# Backend — verificação de tipos
-cd backend && npx tsc --noEmit
+# Tipos em todos os workspaces
+pnpm typecheck
 
-# Frontend — verificação de tipos + build
-cd frontend && npm run build
+# Build completo (shared → API → web)
+pnpm build
 ```
 
 ## Notas

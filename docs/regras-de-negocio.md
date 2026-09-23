@@ -59,15 +59,16 @@ Bloqueada quando (mensagem específica em cada caso):
 - `renewals ≥ maxRenewals`.
 - Existe reserva ativa (PENDING/AVAILABLE) para o livro.
 
-Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda futura) ou hoje (se vencida). `renewals` incrementa. O snapshot do usuário que renovou é salvo em `renewedBySnapshot`.
+Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda futura) ou hoje (se vencida). `renewals` incrementa e a auditoria `LOAN_RENEWED` registra número e novo prazo.
 
 ## Devolução
 
 - `400` se já devolvida.
 - Marca `RETURNED` e `returnedAt`.
-- Opcionalmente registra `returnCondition` (BOM/REGULAR/DANIFICADO) e `returnObservations`.
+- Opcionalmente registra `returnCondition` (BOM/REGULAR/DANIFICADO) e `returnObservations` (até 500 caracteres).
 - Snapshot do responsável pela devolução: `receivedByNameSnapshot`.
 - Se houver reserva `PENDING` para o livro (mais antiga), ela vira `AVAILABLE` (aguardando retirada) — ou `EXPIRED` se `expiresAt` já passou.
+- **Bloqueio automático por atrasos repetidos**: após a devolução, se o leitor acumular 2 ou mais empréstimos `OVERDUE`, o status vira `BLOCKED` com categoria `ATRASO_REPETIDO` (responsável `null`, auditoria `READER_STATUS_CHANGED` com `auto: true`) e suas reservas `PENDING` são canceladas.
 
 ## Reserva
 
@@ -87,21 +88,12 @@ Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda fu
 - No update do livro, a relação de autores é **reatribuída** (remove e recria), então o formulário deve enviar a lista completa.
 - Frontend: nomes digitados viram "chips"; chips de autores que serão criados aparecem destacados ("novo").
 
-## Áreas de Conhecimento com cadastro automático
-
-- O formulário de livro aceita nomes de áreas de conhecimento separados por **vírgulas**.
-- Ao salvar, cada nome é procurado no cadastro (find-or-create case-insensitive).
-  - Existe → reaproveita (não cria duplicado).
-  - Não existe → cria (tabela `KnowledgeArea`).
-- Relação N:N com livros via `BookKnowledgeArea`.
-- No update, a relação é reatribuída (remove e recria).
-
 ## Livros
 
 - ISBN-10 e ISBN-13 validados com dígito verificador; normalizados (espaços/hífens removidos, maiúsculas).
 - Duplicado por ISBN → `409` com detalhes do livro existente (`code: BOOK_ALREADY_EXISTS`).
 - Capa: `GET /books/cover` consulta a Amazon Brasil (fallback .com) e extrai capa, título, subtítulo, ISBN-13, descrição, editora e ano; timeout de 12 s; rate limit 30/15 min.
-- Campos expandidos: `format` (CAPA/BROCHURA/ESPIRAL), `volume`, `cdd`, `cutter`, `physicalLocation`, `availableCopies`, `acquisitionType` (COMPRA/DOACAO/REPOSICAO/PRODUCAO_INTERNA/TROCA/EMPRESTIMO_BIBLIOTECAS/LICITACAO/PERMUTA/CONVENIO).
+- Campos expandidos: `volume`, `cdd`, `cutter`, `physicalLocation`, `availableCopies`, `acquisitionType` (COMPRA/DOACAO/REPOSICAO/PRODUCAO_INTERNA/TROCA/EMPRESTIMO_BIBLIOTECAS/LICITACAO/PERMUTA/CONVENIO).
 - SQLite não suporta enums do Prisma: valores validados por Zod na borda da API, armazenados como String.
 
 ## Leitores
@@ -109,6 +101,7 @@ Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda fu
 - CPF validado com dígitos verificadores (11 dígitos, sem sequências repetidas).
 - CPF único; e-mail único quando informado.
 - Bloqueio manual pela tela de leitores; bloqueado não empresta, não renova, não reserva nem retira reserva.
+- Bloqueio automático: 2+ empréstimos `OVERDUE` após uma devolução bloqueiam o leitor (`ATRASO_REPETIDO`) e cancelam suas reservas pendentes (ver Devolução).
 - Motivo e categoria de bloqueio registrados (`blockReason`, `blockCategory`, `blockedAt`, `blockedBy`).
 - **Exclusão com anonimização LGPD** (`DELETE /readers/:id`, ADMIN apenas):
   - Bloqueia se houver empréstimos ativos ou em atraso.
@@ -134,7 +127,7 @@ Ações registradas: `LOGIN`, `LOGOUT`, `LOGIN_FAILED`, `USER_CREATED`, `USER_UP
 
 - Backups automáticos: dois horários diários via `node-cron` (18:30 e 23:45).
 - Mecanismo: `VACUUM INTO` (SQLite 3.27+) — seguro com escritas concorrentes.
-- Armazenamento: `backend/backups/` com arquivos `backup_YYYY-MM-DD_HH-mm.sqlite`.
+- Armazenamento: `apps/api/backups/` com arquivos `backup_YYYY-MM-DD_HH-mm.sqlite`.
 - Rotação: mantém apenas os 5 backups mais recentes; os antigos são deletados automaticamente.
 - **Download**: `GET /api/backups/:filename/download` — stream do arquivo real.
 - **Upload/Restauração local**: `POST /api/backups/restore-upload` — recebe arquivo via multipart (campo `file`, formatos `.sqlite`/`.db`, máx. 100 MB), copia sobre `dev.db`.
