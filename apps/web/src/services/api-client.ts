@@ -32,3 +32,42 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+// --- Portal do leitor: instância isolada (token e sessão próprios) ---
+export const apiReader = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+  headers: { 'Content-Type': 'application/json' },
+});
+
+const READER_TOKEN_KEY = 'livraria_reader_token';
+
+export function getReaderToken(): string | null {
+  return localStorage.getItem(READER_TOKEN_KEY);
+}
+
+export function setReaderToken(token: string | null): void {
+  if (token) localStorage.setItem(READER_TOKEN_KEY, token);
+  else localStorage.removeItem(READER_TOKEN_KEY);
+}
+
+apiReader.interceptors.request.use((config) => {
+  const token = getReaderToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+apiReader.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url: string = error.config?.url ?? '';
+    if (
+      error?.response?.status === 401 &&
+      !url.includes('/readers/login') &&
+      !url.includes('/readers/register')
+    ) {
+      setReaderToken(null);
+      window.dispatchEvent(new Event('reader:unauthorized'));
+    }
+    return Promise.reject(error);
+  },
+);

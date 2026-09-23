@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, CheckCircle2, FileText, Mail, MapPin, Pencil, Phone, UserCheck, UserRound, UserX } from 'lucide-react';
+import { ArrowLeft, Ban, CheckCircle2, FileText, KeyRound, Mail, MapPin, Pencil, Phone, UserCheck, UserRound, UserX } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
@@ -18,7 +18,7 @@ import { apiErrorMessage } from '../../../lib/errors';
 import { formatCPF, formatDate, formatPhone } from '../../../lib/format';
 import { ReaderFormDialog } from './reader-form-dialog';
 
-type ConfirmKind = 'none' | 'block' | 'unblock' | 'deactivate' | 'activate' | 'delete';
+type ConfirmKind = 'none' | 'block' | 'unblock' | 'deactivate' | 'activate' | 'delete' | 'password';
 
 const CONFIRM_TEXTS = {
   block: { title: 'Bloquear leitor', label: 'Bloquear', destructive: true },
@@ -29,6 +29,7 @@ const CONFIRM_TEXTS = {
     destructive: true,
   },
   activate: { title: 'Ativar leitor', label: 'Ativar', destructive: false },
+  password: { title: 'Definir senha de acesso', label: 'Salvar senha', destructive: false },
 } as const;
 
 const DELETE_PHRASE = 'EXCLUIR';
@@ -45,6 +46,8 @@ export function ReaderDetailsPage() {
   const [blockReason, setBlockReason] = useState('');
   const [deletePhrase, setDeletePhrase] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const { toast } = useApiToast();
   const navigate = useNavigate();
 
@@ -96,6 +99,22 @@ export function ReaderDetailsPage() {
     }
   };
 
+  const saveReaderPassword = async () => {
+    if (!reader || newPassword.length < 6 || newPassword !== newPasswordConfirm) return;
+    setBusy(true);
+    try {
+      await readersApi.setReaderPassword(reader.id, newPassword);
+      toast.success('Senha de acesso definida', `${reader.name} já pode entrar no portal`);
+      setConfirming({ kind: 'none' });
+      setNewPassword('');
+      setNewPasswordConfirm('');
+      refetch();
+    } catch (err) {
+      toast.error('Não foi possível salvar', apiErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
   const deleteReader = async () => {
     if (!reader) return;
     setBusy(true);
@@ -154,6 +173,13 @@ export function ReaderDetailsPage() {
               </Link>
               <Button variant="secondary" onClick={() => setEditing(true)}>
                 <Pencil className="size-4" /> Editar
+              </Button>
+              <Button
+                variant="secondary"
+                title="Define a senha que o leitor usa para entrar no portal (/login)"
+                onClick={() => { setNewPassword(''); setNewPasswordConfirm(''); setConfirming({ kind: 'password' }); }}
+              >
+                <KeyRound className="size-4" /> Senha de acesso
               </Button>
               {reader.status === 'BLOCKED' ? (
                 <Button variant="secondary" onClick={() => setConfirming({ kind: 'unblock' })}>
@@ -325,6 +351,8 @@ export function ReaderDetailsPage() {
             setConfirming({ kind: 'none' });
             setDeletePhrase('');
             setDeleteReason('');
+            setNewPassword('');
+            setNewPasswordConfirm('');
           }
         }}
         title={
@@ -343,7 +371,9 @@ export function ReaderDetailsPage() {
                 ? `${reader.name} ficará inativo e não poderá realizar novos empréstimos. O histórico será preservado.`
                 : confirming.kind === 'activate'
                   ? `${reader.name} voltará ao status ativo e poderá realizar empréstimos.`
-                  : 'Esta ação é permanente e não pode ser desfeita.'
+                  : confirming.kind === 'password'
+                    ? `${reader.name} poderá entrar no portal do leitor (/login) com o e-mail ${reader.email ?? 'cadastrado'} e a nova senha.`
+                    : 'Esta ação é permanente e não pode ser desfeita.'
         }
         confirmLabel={
           confirming.kind === 'delete'
@@ -354,13 +384,21 @@ export function ReaderDetailsPage() {
         }
         destructive={confirming.kind !== 'none' && (confirming.kind === 'delete' || CONFIRM_TEXTS[confirming.kind].destructive)}
         loading={busy}
-        confirmDisabled={confirming.kind === 'delete' && deletePhrase.trim().toUpperCase() !== DELETE_PHRASE}
         onConfirm={
           confirming.kind === 'block' || confirming.kind === 'unblock'
             ? toggleBlock
             : confirming.kind === 'delete'
               ? deleteReader
-              : toggleStatus
+              : confirming.kind === 'password'
+                ? saveReaderPassword
+                : toggleStatus
+        }
+        confirmDisabled={
+          confirming.kind === 'delete'
+            ? deletePhrase.trim().toUpperCase() !== DELETE_PHRASE
+            : confirming.kind === 'password'
+              ? newPassword.length < 6 || newPassword !== newPasswordConfirm
+              : undefined
         }
       >
         {confirming.kind === 'block' && (
@@ -388,6 +426,35 @@ export function ReaderDetailsPage() {
                 className="w-full rounded-control bg-surface px-3 py-2 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
               />
             </div>
+          </div>
+        )}
+        {confirming.kind === 'password' && (
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="mb-1 block text-[12px] font-bold text-muted">Nova senha (mínimo 6 caracteres)</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                className="h-9 w-full rounded-control bg-surface px-3 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-bold text-muted">Confirmar senha</label>
+              <input
+                type="password"
+                value={newPasswordConfirm}
+                onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                placeholder="Repita a senha"
+                autoComplete="new-password"
+                className="h-9 w-full rounded-control bg-surface px-3 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
+              />
+            </div>
+            {newPassword && newPasswordConfirm && newPassword !== newPasswordConfirm && (
+              <p className="text-[12px] font-semibold text-destructive">Senhas não conferem.</p>
+            )}
           </div>
         )}
         {confirming.kind === 'delete' && (

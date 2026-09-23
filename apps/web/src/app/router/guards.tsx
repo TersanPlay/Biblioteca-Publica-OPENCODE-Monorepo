@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../features/auth/auth-provider';
+import { useReaderSession } from '../../features/readers/reader-session';
 import { Spinner } from '../../components/ui/button';
 
 export function RequireAuth() {
@@ -26,5 +27,18 @@ export function RequireAdmin() {
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'ADMIN') return <Navigate to="/admin" replace />;
+  return <Outlet />;
+}
+
+export function RequireReader() {
+  const { reader, loading } = useReaderSession();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    );
+  }
+  if (!reader) return <Navigate to="/login" replace />;
   return <Outlet />;
 }

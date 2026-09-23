@@ -131,6 +131,15 @@ Novo prazo: `base + defaultLoanDays`, onde `base` = `dueDate` atual (se ainda fu
 - Usuário inativo não autentica (o `requireAuth` rejeita status ≠ `ACTIVE`).
 - Primeiro acesso: criado no seed a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD` (não há credenciais padrão). Perfis adicionais são criados pela tela Usuários.
 
+## Portal do leitor (autocadastro)
+
+- Página pública `/cadastro`: nome, CPF (validado), e-mail (único, obrigatório — é o login), senha (mín. 6), telefone e nascimento opcionais. Conta nasce `ACTIVE`, sem admin.
+- Login em `/login` (aba Leitor) com e-mail + senha; sessão e token separados da equipe (`livraria_reader_token`).
+- Leitor vê e altera só o próprio cadastro (sem CPF/status), troca a própria senha, consulta empréstimos e termos próprios, cria/cancela as próprias reservas. Empréstimo, devolução, renovação e gestão seguem exclusivos do balcão.
+- Reserva pelo portal segue as mesmas regras do balcão (livro existente, não arquivado, sem duplicada ativa).
+- Leitores antigos (cadastrados no balcão, sem senha): o balcão define a senha em Detalhe do leitor → Senha de acesso, ou o próprio leitor ativa em `/login` → Primeiro acesso (confere CPF + e-mail do cadastro; só vale para conta ainda sem senha).
+- Exclusão LGPD também apaga `passwordHash` e assinatura do leitor.
+
 ## Auditoria
 
 Toda operação de escrita registra quem (usuário autenticado), o quê (ação), sobre qual entidade, com metadados e IP. Falhas de login também são registradas (sem usuário).

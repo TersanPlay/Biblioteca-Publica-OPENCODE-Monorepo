@@ -1,24 +1,49 @@
-import { Link, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, BookOpen, CalendarDays, Globe2, Layers, Library, ListOrdered } from 'lucide-react';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { ArrowLeft, BookOpen, BookmarkPlus, CalendarDays, Globe2, Layers, Library, ListOrdered } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BookCover } from '../../components/layout/book-cover';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { booksApi } from '../../features/api';
+import { readerPortalApi } from '../../features/readers/portal-api';
+import { useReaderSession } from '../../features/readers/reader-session';
+import { useToast } from '../../features/toast/toast-provider';
+import { apiErrorMessage } from '../../lib/errors';
 import type { Book } from '../../types/api';
 
 export function BookDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { reader } = useReaderSession();
   const bookId = Number(id);
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reserving, setReserving] = useState(false);
 
   const fromAdmin = location.state?.fromAdmin || location.pathname.startsWith('/admin');
   const backLink = fromAdmin ? '/admin/livros' : '/catalogo';
   const backLabel = fromAdmin ? 'Voltar para livros' : 'Voltar ao catálogo';
+
+  const reserve = async () => {
+    if (!reader) {
+      navigate('/login');
+      return;
+    }
+    setReserving(true);
+    try {
+      await readerPortalApi.reserve(bookId);
+      toast('success', 'Reserva registrada! Retire o livro em até 3 dias.');
+    } catch (err) {
+      toast('error', 'Não foi possível reservar', apiErrorMessage(err));
+    } finally {
+      setReserving(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -127,20 +152,28 @@ export function BookDetailsPage() {
           </div>
 
           <Card className="mt-7 p-5">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[15px] font-bold text-ink">Situação do empréstimo</p>
                 <p className="mt-0.5 text-[12.5px] text-muted">
                   {book.hasActiveLoan
-                    ? 'Um leitor está com este livro; aguarde a devolução.'
+                    ? 'Um leitor está com este livro; reserve para ser avisado na devolução.'
                     : 'Pronto para retirada no balcão da biblioteca.'}
                 </p>
               </div>
-              <Badge variant={book.hasActiveLoan ? 'warning' : 'success'} dot>
-                {book.hasActiveLoan
-                  ? 'Aguardando devolução'
-                  : 'Pronto para empréstimo'}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={book.hasActiveLoan ? 'warning' : 'success'} dot>
+                  {book.hasActiveLoan
+                    ? 'Aguardando devolução'
+                    : 'Pronto para empréstimo'}
+                </Badge>
+                {!fromAdmin && (
+                  <Button size="sm" loading={reserving} onClick={reserve}>
+                    <BookmarkPlus className="size-3.5" />
+                    {reader ? 'Reservar' : 'Entrar para reservar'}
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
         </div>

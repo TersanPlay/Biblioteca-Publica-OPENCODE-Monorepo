@@ -1,10 +1,11 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import prisma from '../../lib/prisma';
 import { HttpError } from '../../lib/http-error';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireAuth, requireRoles } from '../../middleware/auth';
 import { writeAudit } from '../../lib/audit';
-import { cleanNull, dateOrNull, parse, paginationSchema, readerDeleteSchema, readerQuerySchema, readerSchema, readerSignatureSchema, readerStatusSchema, readerUpdateSchema } from '../../validation';
+import { cleanNull, dateOrNull, parse, paginationSchema, readerDeleteSchema, readerPasswordSchema, readerQuerySchema, readerSchema, readerSignatureSchema, readerStatusSchema, readerUpdateSchema } from '../../validation';
 import { refreshOverdue } from '../../lib/overdue';
 
 export const readerRouter = Router();
@@ -246,6 +247,24 @@ readerRouter.patch(
   }),
 );
 
+// Balcão define/redefine a senha de acesso ao portal do leitor.
+readerRouter.post(
+  '/:id/password',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const data = parse(readerPasswordSchema, req.body);
+    const existing = await prisma.reader.findUnique({ where: { id } });
+    if (!existing) throw new HttpError(404, 'Leitor não encontrado');
+    if (existing.deletedAt) throw new HttpError(409, 'Leitor excluído não pode ter senha alterada');
+    await prisma.reader.update({
+      where: { id },
+      data: { passwordHash: bcrypt.hashSync(data.password, 10) },
+    });
+    await writeAudit(req.user?.id, 'READER_UPDATED', 'Reader', id, { password: true, byStaff: true }, req.ip);
+    res.json({ ok: true });
+  }),
+);
+
 readerRouter.delete(
   '/:id',
   requireRoles('ADMIN'),
@@ -290,6 +309,7 @@ readerRouter.delete(
           blockedBy: null,
           signature: null,
           signatureUpdatedAt: null,
+          passwordHash: null,
           deletedAt: new Date(),
           anonymizedAt: new Date(),
         },

@@ -23,4 +23,6 @@ export const readersApi = {
     api.get<Paginated<BlockedReader>>('/readers/blocked', { params }).then((r) => r.data),
   setSignature: (id: number, signature: string) =>
     api.patch<Reader>(`/readers/${id}/signature`, { signature }).then((r) => r.data),
+  setReaderPassword: (id: number, password: string) =>
+    api.post<{ ok: boolean }>(`/readers/${id}/password`, { password }).then((r) => r.data),
 };

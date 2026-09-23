@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import { Prisma } from '../../generated/prisma';
 import prisma from '../../lib/prisma';
 import { HttpError } from '../../lib/http-error';
@@ -8,6 +9,7 @@ import { writeAudit } from '../../lib/audit';
 import { computeDueDate, expireReservations, refreshOverdue } from '../../lib/overdue';
 import { getSettings } from '../../lib/settings';
 import { generateLoanTermPDF, generateReturnTermPDF } from '../../lib/terms';
+import { requireReader } from '../../lib/reader-auth';
 import { dateOrNull, loanBatchCreateSchema, loanCreateSchema, loanQuerySchema, loanReturnSchema, parse } from '../../validation';
 
 export const loanRouter = Router();
@@ -42,6 +44,28 @@ async function assertBookEligible(
   if (reservation) throw new HttpError(400, `"${book.title}" possui reserva aguardando por outro leitor`);
   return { id: book.id, title: book.title };
 }
+
+// Termos: equipe (qualquer empréstimo) ou o próprio leitor dono do empréstimo.
+const requireStaffOrLoanOwner: RequestHandler = (req, res, next) => {
+  (requireAuth as RequestHandler)(req, res, () => {
+    if (req.user) return next();
+    (requireReader as RequestHandler)(req, res, async () => {
+      try {
+        if (!req.reader) return next(new HttpError(401, 'Não autenticado'));
+        const loan = await prisma.loan.findUnique({
+          where: { id: Number(req.params.id) },
+          select: { readerId: true },
+        });
+        if (!loan || loan.readerId !== req.reader.id) {
+          return next(new HttpError(403, 'Sem permissão para este documento'));
+        }
+        return next();
+      } catch (err) {
+        return next(err);
+      }
+    });
+  });
+};
 
 // Assinatura da operação: nova desenho atualiza a salva do leitor;
 // useSavedSignature reaproveita a salva (erro se não houver).
@@ -427,7 +451,7 @@ loanRouter.post(
 
 loanRouter.get(
   '/:id/term',
-  requireAuth,
+  requireStaffOrLoanOwner,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const loan = await prisma.loan.findUnique({ where: { id }, include: { reader: true, book: true } });
@@ -443,7 +467,7 @@ loanRouter.get(
 
 loanRouter.get(
   '/:id/return-term',
-  requireAuth,
+  requireStaffOrLoanOwner,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const loan = await prisma.loan.findUnique({ where: { id }, include: { reader: true, book: true } });

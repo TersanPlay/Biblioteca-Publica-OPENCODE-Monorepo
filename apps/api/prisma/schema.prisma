@@ -45,6 +45,7 @@ model Reader {
   blockedByUser User?         @relation("BlockedReaders", fields: [blockedBy], references: [id])
   signature    String?
   signatureUpdatedAt DateTime?
+  passwordHash String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   loans        Loan[]

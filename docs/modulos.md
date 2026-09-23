@@ -10,6 +10,7 @@
 | Authors | `author/author.routes.ts` | `/api/authors` | auth |
 | Categories | `category/category.routes.ts` | `/api/categories` | leitura pública; escrita ADMIN |
 | Readers | `reader/reader.routes.ts` | `/api/readers` | auth (DELETE: ADMIN) |
+| Reader Auth | `reader/reader-auth.routes.ts` | `/api/readers` | `/register` e `/login` públicos; `/me/*` com sessão de leitor |
 | Loans | `loan/loan.routes.ts` | `/api/loans` | auth |
 | Reservations | `reservation/reservation.routes.ts` | `/api/reservations` | auth |
 | Reports | `report/report.routes.ts` | `/api/reports` | ADMIN |
@@ -37,7 +38,9 @@
 |---|---|
 | `/` | Home |
 | `/catalogo` | Catálogo de livros (busca, categoria, disponibilidade) |
-| `/livros/:id` | Detalhe do livro público |
+| `/livros/:id` | Detalhe do livro público (reserva p/ leitor logado) |
+| `/cadastro` | Autocadastro de leitor (público) |
+| `/minha-conta` | Portal do leitor (guarda `RequireReader`, layout público) |
 | `/arquitetura` | Arquitetura do sistema (visão geral, stack, estrutura, fluxo de dados) |
 
 ### Autenticadas (guarda `RequireAuth` + `AdminLayout`)

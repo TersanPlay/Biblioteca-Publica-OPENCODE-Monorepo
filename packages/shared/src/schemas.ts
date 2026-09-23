@@ -171,6 +171,47 @@ export const readerSchema = z.object({
 
 export const readerUpdateSchema = readerSchema.partial();
 
+export const readerPasswordSchema = z.object({
+  password: z.string().min(6, 'senha deve ter no mínimo 6 caracteres'),
+});
+
+// Autocadastro público: e-mail e senha obrigatórios (login do leitor).
+export const readerRegisterSchema = readerSchema.extend({
+  email: z.string().trim().email('e-mail inválido').toLowerCase(),
+  password: z.string().min(6, 'senha deve ter no mínimo 6 caracteres'),
+});
+
+export const readerLoginSchema = z.object({
+  email: z.string().trim().email('e-mail inválido').toLowerCase(),
+  password: z.string().min(1, 'senha obrigatória'),
+});
+
+// Primeiro acesso de leitor já cadastrado: confere CPF + e-mail e define a senha.
+export const readerClaimSchema = z.object({
+  cpf: z.string().trim().refine(isValidCpf, 'CPF inválido'),
+  email: z.string().trim().email('e-mail inválido').toLowerCase(),
+  password: z.string().min(6, 'senha deve ter no mínimo 6 caracteres'),
+});
+
+// Perfil próprio: sem cpf/status (identidade e situação só pelo balcão).
+export const readerSelfUpdateSchema = z.object({
+  name: z.string().trim().min(2, 'nome obrigatório').optional(),
+  birthDate: dateStrOpt,
+  phone: strOpt,
+  email: emailOpt,
+  cep: strOpt,
+  address: strOpt,
+  number: strOpt,
+  neighborhood: strOpt,
+  city: strOpt,
+  state: stateOpt,
+});
+
+export const readerSelfPasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'senha atual obrigatória'),
+  password: z.string().min(6, 'senha deve ter no mínimo 6 caracteres'),
+});
+
 export const readerDeleteSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });

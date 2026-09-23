@@ -121,9 +121,29 @@ Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `ca
 | PUT | `/api/readers/:id` | ✅ | Atualiza campos parciais |
 | PATCH | `/api/readers/:id/status` | ✅ | `{ status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED', reason?, category? }` |
 | PATCH | `/api/readers/:id/signature` | ✅ | Salva/atualiza assinatura do leitor: `{ signature }` (data-URL PNG, obrigatória) |
+| POST | `/api/readers/:id/password` | ✅ | Balcão define/redefine a senha de acesso ao portal: `{ password }` (mín. 6). Bloqueado para excluídos |
 | DELETE | `/api/readers/:id` | ADMIN | Exclui leitor (anonimização LGPD): bloqueia se tiver empréstimos ativos, cancela reservas pendentes, substitui dados pessoais por valores genéricos. Corpo: `{ reason? }` |
 
 Corpo de criação: `{ name, cpf, birthDate?, phone?, email?, cep?, address?, number?, neighborhood?, city?, state? }` (UF com 2 letras).
+
+## Portal do leitor — sessão isolada
+
+Autenticação própria da tabela `Reader` (secret JWT distinto do staff; tokens não cruzam mesmo com IDs iguais). Rate limit 10/15 min em `register`/`login`.
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| POST | `/api/readers/register` | — | Autocadastro: `readerSchema` + `email` (obrigatório, único) + `password` (mín. 6). Cria `ACTIVE` e já retorna `{ token, reader }`. `409` CPF/e-mail duplicado |
+| POST | `/api/readers/login` | — | `{ email, password }` → `{ token, reader }`. `401` sem distinguir motivo |
+| POST | `/api/readers/claim` | — | Primeiro acesso de leitor já cadastrado: `{ cpf, email, password }`. Confere CPF + e-mail, exige conta sem senha, define a senha e já retorna `{ token, reader }`. `401` genérico caso contrário |
+| GET | `/api/readers/me` | Leitor | Perfil próprio (sem `passwordHash`) |
+| PUT | `/api/readers/me` | Leitor | Atualiza nome, contato e endereço (sem CPF/status) |
+| POST | `/api/readers/me/password` | Leitor | `{ currentPassword, password }` |
+| GET | `/api/readers/me/loans` | Leitor | `{ loans, activeLoans, overdueCount }` (últimos 100, com livro) |
+| GET | `/api/readers/me/reservations` | Leitor | Reservas próprias (últimas 50, com livro) |
+| POST | `/api/readers/me/reservations` | Leitor | `{ bookId }` — mesmas regras do balcão (livro existente/não arquivado, sem reserva ativa duplicada) |
+| POST | `/api/readers/me/reservations/:id/cancel` | Leitor | Só própria, só `PENDING`/`AVAILABLE` |
+
+Leitor acessa seus Termos via `GET /loans/:id/term` e `/return-term` (aceita staff ou o próprio dono; `403` para terceiros).
 
 ## Loans — autenticação
 

@@ -1,12 +1,14 @@
 import { Route, Routes } from 'react-router-dom';
 import { AdminLayout } from '../../components/layout/admin-layout';
 import { PublicLayout } from '../../components/layout/public-layout';
-import { RequireAdmin, RequireAuth } from './guards';
+import { RequireAdmin, RequireAuth, RequireReader } from './guards';
 import { HomePage } from '../../pages/public/home';
 import { CatalogPage } from '../../pages/public/catalog';
 import { BookDetailsPage } from '../../pages/public/book-details';
 import { ArchitecturePage } from '../../pages/public/architecture';
+import { RegisterPage } from '../../pages/public/register';
 import { LoginPage } from '../../pages/auth/login';
+import { ReaderAccountPage } from '../../pages/reader/account';
 import { DashboardPage } from '../../pages/admin/dashboard';
 import { BooksPage } from '../../pages/admin/books';
 import { BookFormPage } from '../../pages/admin/book-form';
@@ -35,7 +37,13 @@ export function AppRoutes() {
         <Route path="livros/:id" element={<BookDetailsPage />} />
         <Route path="arquitetura" element={<ArchitecturePage />} />
       </Route>
+      <Route path="cadastro" element={<RegisterPage />} />
       <Route path="login" element={<LoginPage />} />
+      <Route element={<RequireReader />}>
+        <Route element={<PublicLayout />}>
+          <Route path="minha-conta" element={<ReaderAccountPage />} />
+        </Route>
+      </Route>
       <Route element={<RequireAuth />}>
         <Route element={<AdminLayout />}>
           <Route path="admin" element={<DashboardPage />} />

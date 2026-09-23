@@ -15,6 +15,9 @@ export const env = {
   get JWT_SECRET(): string {
     return required('JWT_SECRET');
   },
+  get READER_JWT_SECRET(): string {
+    return process.env.READER_JWT_SECRET || `${required('JWT_SECRET')}#reader`;
+  },
   get JWT_EXPIRES(): string {
     return process.env.JWT_EXPIRES || '8h';
   },

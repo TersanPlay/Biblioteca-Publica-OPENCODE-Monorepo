@@ -3,6 +3,7 @@ import { BookOpen, LogOut, Search, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../../features/auth/auth-provider';
+import { useReaderSession } from '../../features/readers/reader-session';
 import { settingsApi } from '../../features/api';
 import type { LibrarySettings } from '../../types/api';
 import {
@@ -38,6 +39,7 @@ export function Logo({ compact, name }: { compact?: boolean; name?: string | nul
 
 export function PublicNavbar() {
   const { user, logout } = useAuth();
+  const { reader, logout: readerLogout } = useReaderSession();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -89,7 +91,36 @@ export function PublicNavbar() {
                 className="h-9 w-56 rounded-full bg-canvas pl-9 pr-3 text-[13px] text-ink placeholder:text-muted/70 shadow-[inset_0_0_0_1px_rgba(23,26,26,.08)] transition-all duration-200 [transition-timing-function:var(--ease)] focus:w-64 focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
               />
             </form>
-            {user ? (
+            {reader ? (
+              <DropdownMenu open={open} onOpenChange={setOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors duration-150 hover:bg-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label="Menu do leitor"
+                  >
+                    <span className="flex size-8 items-center justify-center rounded-full bg-primary-soft text-[12px] font-extrabold text-primary-dark">
+                      {initials(reader.name)}
+                    </span>
+                    <span className="hidden text-[13px] font-semibold text-ink lg:block">
+                      {reader.name.split(' ')[0]}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>{reader.email ?? reader.name}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => navigate('/minha-conta')}>
+                    <BookOpen className="size-4" />
+                    Minha conta
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem destructive onSelect={() => readerLogout()}>
+                    <LogOut className="size-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : user ? (
               <DropdownMenu open={open} onOpenChange={setOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -119,13 +150,21 @@ export function PublicNavbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Link
-                to="/login"
-                className="hidden h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-semibold text-white shadow-card transition-all duration-200 [transition-timing-function:var(--ease)] hover:bg-primary-dark active:scale-[.98] sm:flex"
-              >
-                <UserRound className="size-4" />
-                Entrar
-              </Link>
+              <>
+                <Link
+                  to="/cadastro"
+                  className="hidden h-9 items-center rounded-full px-3 text-[13px] font-semibold text-primary transition-colors hover:bg-canvas sm:flex"
+                >
+                  Criar conta
+                </Link>
+                <Link
+                  to="/login"
+                  className="hidden h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-semibold text-white shadow-card transition-all duration-200 [transition-timing-function:var(--ease)] hover:bg-primary-dark active:scale-[.98] sm:flex"
+                >
+                  <UserRound className="size-4" />
+                  Entrar
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -170,11 +209,16 @@ export function PublicFooter() {
                   Catálogo completo
                 </Link>
               </li>
-              <li>
-                <Link to="/login" className="transition-colors hover:text-white">
-                  Área da equipe
-                </Link>
-              </li>
+                <li>
+                  <Link to="/login" className="transition-colors hover:text-white">
+                    Área da equipe
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/cadastro" className="transition-colors hover:text-white">
+                    Criar conta de leitor
+                  </Link>
+                </li>
             </ul>
           </div>
           <div>
