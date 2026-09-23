@@ -1,44 +1,56 @@
 import type { ReactNode } from 'react';
-import { Boxes, FolderTree, Layers, ListOrdered } from 'lucide-react';
+import {
+  Atom,
+  Boxes,
+  ClipboardList,
+  Clock,
+  Cpu,
+  Database,
+  FileCheck,
+  FileText,
+  Gauge,
+  Globe,
+  Layers,
+  Palette,
+  PenLine,
+  Route,
+  Send,
+  Server,
+  ShieldCheck,
+  Upload,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 
 const SECTIONS = [
   { id: 'visao-geral', label: 'Visão geral' },
   { id: 'stack', label: 'Stack' },
-  { id: 'estrutura', label: 'Estrutura' },
-  { id: 'fluxo-de-dados', label: 'Fluxo de dados' },
 ];
 
 const BACKEND_STACK = [
-  ['Runtime', 'Node.js + TypeScript (tsx watch)'],
-  ['HTTP', 'Express 4'],
-  ['ORM', 'Prisma 5 (@prisma/client)'],
-  ['Banco', 'SQLite (backend/prisma/dev.db)'],
-  ['Validação', 'Zod 3 (src/validation.ts)'],
-  ['Autenticação', 'JWT (jsonwebtoken) + bcryptjs'],
-  ['Rate limit', 'express-rate-limit'],
-  ['Cron', 'node-cron (backups automáticos)'],
+  ['Runtime', 'Node.js + TypeScript (tsx watch)', Cpu, 'text-sky-600'],
+  ['HTTP', 'Express 4', Globe, 'text-emerald-600'],
+  ['ORM', 'Prisma 5 (@prisma/client)', Database, 'text-indigo-500'],
+  ['Banco', 'SQLite (apps/api/prisma/dev.db)', Server, 'text-orange-500'],
+  ['Validação', 'Zod 3 (packages/shared + src/validation.ts)', FileCheck, 'text-rose-500'],
+  ['Autenticação', 'JWT (jsonwebtoken) + bcryptjs', ShieldCheck, 'text-green-600'],
+  ['PDF', 'pdfkit (termos + assinaturas)', FileText, 'text-red-500'],
+  ['Upload', 'multer (restauração de backup)', Upload, 'text-violet-500'],
+  ['Rate limit', 'express-rate-limit', Gauge, 'text-amber-500'],
+  ['Cron', 'node-cron (backups automáticos)', Clock, 'text-stone-500'],
 ] as const;
 
 const FRONTEND_STACK = [
-  ['Framework', 'React 18 + TypeScript'],
-  ['Build', 'Vite 5'],
-  ['Estilo', 'Tailwind CSS 3 + Radix UI + Lucide'],
-  ['Formulários', 'React Hook Form + Zod resolvers'],
-  ['Rotas', 'React Router 6'],
-  ['HTTP', 'Axios (interceptor JWT)'],
+  ['Framework', 'React 18 + TypeScript', Atom, 'text-cyan-600'],
+  ['Build', 'Vite 5 (proxy /api → 3333)', Zap, 'text-yellow-500'],
+  ['Estilo', 'Tailwind CSS 3 + Radix UI + Lucide', Palette, 'text-fuchsia-500'],
+  ['Formulários', 'React Hook Form + Zod resolvers', ClipboardList, 'text-lime-600'],
+  ['Rotas', 'React Router 6', Route, 'text-pink-500'],
+  ['HTTP', 'Axios (api-client + interceptor JWT)', Send, 'text-blue-600'],
+  ['Assinatura', 'signature_pad (mouse, touch, caneta)', PenLine, 'text-teal-600'],
+  ['Utilidades', 'clsx + tailwind-merge', Wrench, 'text-purple-500'],
 ] as const;
-
-const FLOW_STEPS = [
-  'A SPA chama os clientes de features/api.ts (ex.: loansApi.createBatch).',
-  'O interceptor de services/axios.ts injeta Authorization: Bearer <token> salvo em localStorage.',
-  'O Express roteia para o módulo correspondente (app.ts monta /api/<recurso>).',
-  'Corpo e query são validados com Zod; falha responde 400 com { error }.',
-  'A regra de negócio roda via Prisma (SQLite), geralmente em $transaction.',
-  'Toda mutação registra auditoria com writeAudit().',
-  'Erros conhecidos viram HttpError; o errorHandler devolve { error } com o status correto.',
-  'Em 401 (fora do login), o interceptor limpa o token e encerra a sessão.',
-];
 
 function Section({
   id,
@@ -93,25 +105,57 @@ function LayerBox({
 
 function FlowArrow({ label }: { label: string }) {
   return (
-    <div className="flex flex-row items-center justify-center gap-1.5 py-1 md:flex-col md:gap-0.5 md:py-0">
-      <span className="hidden text-[10.5px] font-bold uppercase tracking-wide text-muted md:block">
+    <div className="flex items-center gap-2 py-1 md:flex-col md:justify-center md:gap-1.5 md:py-2">
+      <span className="text-[10px] font-bold uppercase tracking-wide text-muted">
         {label}
       </span>
-      <svg
-        viewBox="0 0 24 24"
-        className="size-5 rotate-90 text-primary md:rotate-0"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M5 12h14" />
-        <path d="m13 6 6 6-6 6" />
-      </svg>
-      <span className="text-[10.5px] font-bold uppercase tracking-wide text-muted md:hidden">
-        {label}
+      <span className="flex items-center gap-1 md:hidden" aria-hidden="true">
+        <svg viewBox="0 0 10 34" className="h-8 w-2.5" fill="none">
+          <line x1="3" y1="1" x2="3" y2="33" stroke="#087F8C" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3" className="anim-flow" />
+          <circle r="2.2" fill="#087F8C">
+            <animateMotion dur="1.4s" repeatCount="indefinite" path="M3,1 V33" />
+          </circle>
+          <line x1="7" y1="1" x2="7" y2="33" stroke="#D97706" strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3" className="anim-flow-rev" />
+          <circle r="2.2" fill="#D97706">
+            <animateMotion dur="1.4s" repeatCount="indefinite" path="M7,33 V1" />
+          </circle>
+        </svg>
+        <svg
+          viewBox="0 0 24 24"
+          className="size-5 rotate-90 text-primary"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12h14" />
+          <path d="m13 6 6 6-6 6" />
+        </svg>
+      </span>
+      <span className="hidden items-center md:flex" aria-hidden="true">
+        <svg viewBox="0 0 36 14" className="h-3.5 w-9" fill="none">
+          <line x1="2" y1="3.5" x2="34" y2="3.5" stroke="#087F8C" strokeOpacity="0.4" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 4" className="anim-flow" />
+          <circle r="2.5" fill="#087F8C">
+            <animateMotion dur="1.4s" repeatCount="indefinite" path="M2,3.5 H34" />
+          </circle>
+          <line x1="2" y1="10.5" x2="34" y2="10.5" stroke="#D97706" strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 4" className="anim-flow-rev" />
+          <circle r="2.5" fill="#D97706">
+            <animateMotion dur="1.4s" repeatCount="indefinite" path="M34,10.5 H2" />
+          </circle>
+        </svg>
+        <svg
+          viewBox="0 0 24 24"
+          className="-ml-1 size-5 text-primary"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12h14" />
+          <path d="m13 6 6 6-6 6" />
+        </svg>
       </span>
     </div>
   );
@@ -159,13 +203,8 @@ export function ArchitecturePage() {
                   <FlowArrow label="HTTP/JSON + JWT Bearer" />
                   <LayerBox primary title="Backend" sub="Express API · porta 3333 /api" />
                   <FlowArrow label="Prisma ORM" />
-                  <LayerBox title="SQLite" sub="backend/prisma/dev.db" />
+                  <LayerBox title="SQLite" sub="apps/api/prisma/dev.db" />
                 </div>
-                <p className="mt-4 text-[13px] leading-relaxed text-muted">
-                  SPA autenticada por JWT stateless. Em desenvolvimento, o Vite faz proxy de
-                  {' '}<code className="rounded bg-surfaceWarm px-1.5 py-0.5 font-mono text-[11.5px]">/api</code>{' '}
-                  para a porta 3333. O schema Prisma está preparado para migração futura ao PostgreSQL.
-                </p>
               </Card>
             </Section>
 
@@ -176,9 +215,14 @@ export function ArchitecturePage() {
                     Backend
                   </h3>
                   <dl className="space-y-2.5">
-                    {BACKEND_STACK.map(([k, v]) => (
-                      <div key={k} className="flex items-baseline justify-between gap-3">
-                        <dt className="text-[12.5px] font-bold uppercase tracking-wide text-muted">{k}</dt>
+                    {BACKEND_STACK.map(([k, v, Icon, color]) => (
+                      <div key={k} className="flex items-center justify-between gap-3">
+                        <dt className="flex min-w-0 items-center gap-2 text-[12.5px] font-bold uppercase tracking-wide text-muted">
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-surfaceWarm">
+                            <Icon className={`size-4 ${color}`} />
+                          </span>
+                          <span className="truncate">{k}</span>
+                        </dt>
                         <dd className="text-right text-[13px] font-semibold text-ink">{v}</dd>
                       </div>
                     ))}
@@ -189,55 +233,20 @@ export function ArchitecturePage() {
                     Frontend
                   </h3>
                   <dl className="space-y-2.5">
-                    {FRONTEND_STACK.map(([k, v]) => (
-                      <div key={k} className="flex items-baseline justify-between gap-3">
-                        <dt className="text-[12.5px] font-bold uppercase tracking-wide text-muted">{k}</dt>
+                    {FRONTEND_STACK.map(([k, v, Icon, color]) => (
+                      <div key={k} className="flex items-center justify-between gap-3">
+                        <dt className="flex min-w-0 items-center gap-2 text-[12.5px] font-bold uppercase tracking-wide text-muted">
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-surfaceWarm">
+                            <Icon className={`size-4 ${color}`} />
+                          </span>
+                          <span className="truncate">{k}</span>
+                        </dt>
                         <dd className="text-right text-[13px] font-semibold text-ink">{v}</dd>
                       </div>
                     ))}
                   </dl>
                 </Card>
               </div>
-            </Section>
-
-            <Section id="estrutura" icon={FolderTree} title="Estrutura">
-              <Card>
-                <pre className="overflow-x-auto rounded-control bg-surfaceWarm p-4 font-mono text-[12px] leading-relaxed text-ink">
-{`backend/
-  prisma/schema.prisma      Modelos do banco
-  scripts/smoke.ts          Suíte E2E via API
-  src/
-    app.ts                  Routers, CORS, handlers de erro
-    validation.ts           Schemas Zod + helpers
-    lib/                    prisma, audit, overdue, cover...
-    middleware/             auth, rate-limits, errors
-    modules/                Um router por domínio
-
-frontend/
-  src/
-    app/router/             Rotas e guardas
-    components/             layout/ e ui/ (design system)
-    features/api.ts         Clientes por entidade
-    pages/public|admin/     Páginas
-    services/axios.ts       Interceptor JWT + logout 401
-    types/api.ts            Tipos das entidades`}
-                </pre>
-              </Card>
-            </Section>
-
-            <Section id="fluxo-de-dados" icon={ListOrdered} title="Fluxo de dados">
-              <Card>
-                <ol className="space-y-3">
-                  {FLOW_STEPS.map((step, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-white">
-                        {i + 1}
-                      </span>
-                      <span className="text-[13.5px] leading-relaxed text-ink">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
             </Section>
           </div>
         </div>

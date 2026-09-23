@@ -61,6 +61,12 @@
   .anim-rise {
     animation: anim-rise 0.35s var(--ease);
   }
+  .anim-flow {
+    animation: anim-flow 0.9s linear infinite;
+  }
+  .anim-flow-rev {
+    animation: anim-flow-rev 0.9s linear infinite;
+  }
   .reveal {
     opacity: 0;
     transform: translateY(14px);
@@ -100,6 +106,25 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes anim-flow {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+@keyframes anim-flow-rev {
+  to {
+    stroke-dashoffset: 18;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-flow,
+  .anim-flow-rev {
+    animation: none;
   }
 }
 
