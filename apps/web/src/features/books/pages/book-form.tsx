@@ -8,7 +8,7 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { FieldError, Label } from '../../../components/ui/form-field';
 import { Input } from '../../../components/ui/input';
-import { NativeSelect } from '../../../components/ui/select';
+import { Select } from '../../../components/ui/select';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { Textarea } from '../../../components/ui/textarea';
 import { authorsApi, booksApi, categoriesApi } from '../../api';
@@ -29,7 +29,7 @@ const DUPLICATE_MESSAGE: Record<'isbn10' | 'isbn13', string> = {
 };
 
 const ACQUISITION_OPTIONS = [
-  { value: '', label: '—' },
+  { value: 'NONE', label: '—' },
   { value: 'COMPRA', label: 'Compra' },
   { value: 'DOACAO', label: 'Doação' },
   { value: 'REPOSICAO', label: 'Reposição' },
@@ -526,9 +526,9 @@ export function BookFormPage() {
             </div>
             <div>
               <Label htmlFor="acquisitionType">Tipo de aquisição</Label>
-              <NativeSelect
-                value={watch('acquisitionType')}
-                onChange={(v) => setValue('acquisitionType', v)}
+              <Select
+                value={watch('acquisitionType') || 'NONE'}
+                onValueChange={(v) => setValue('acquisitionType', v === 'NONE' ? '' : v)}
                 options={ACQUISITION_OPTIONS}
               />
             </div>

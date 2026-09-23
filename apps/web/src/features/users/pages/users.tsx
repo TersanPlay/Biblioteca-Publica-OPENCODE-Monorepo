@@ -15,7 +15,7 @@ import { Label } from '../../../components/ui/form-field';
 import { Input } from '../../../components/ui/input';
 import { PageHeader } from '../../../components/ui/page-header';
 import { Pagination } from '../../../components/ui/pagination';
-import { NativeSelect } from '../../../components/ui/select';
+import { Select } from '../../../components/ui/select';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { UserStatusBadge } from '../../../components/ui/status-badge';
 import { TD, TH, TBody, THead, TR, Table } from '../../../components/ui/table';
@@ -219,9 +219,9 @@ export function UsersPage() {
               </div>
               <div>
                 <Label>Papel</Label>
-                <NativeSelect
+                <Select
                   value={watch('role')}
-                  onChange={(v) => setValue('role', v as 'ADMIN' | 'ATTENDANT')}
+                  onValueChange={(v) => setValue('role', v as 'ADMIN' | 'ATTENDANT')}
                   options={[
                     { value: 'ADMIN', label: 'Administrador — acesso total' },
                     { value: 'ATTENDANT', label: 'Atendente — operação diária' },

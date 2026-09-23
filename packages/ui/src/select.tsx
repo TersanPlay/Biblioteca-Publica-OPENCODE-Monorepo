@@ -47,33 +47,33 @@ export function Select({
             <ChevronDown className="size-4 text-muted" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            position="popper"
+            sideOffset={6}
+            className="z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-card border border-black/5 bg-surface p-1 shadow-pop anim-pop"
+          >
+            <SelectPrimitive.Viewport>
+              {options.map((o) => (
+                <SelectPrimitive.Item
+                  key={o.value}
+                  value={o.value}
+                  className={cn(
+                    'relative flex cursor-pointer select-none items-center rounded-control py-2 pl-3 pr-8 text-sm text-ink',
+                    'data-[highlighted]:bg-surfaceBlue data-[state=checked]:text-primary-dark',
+                    'focus:outline-none',
+                  )}
+                >
+                  <SelectPrimitive.ItemText>{o.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator className="absolute right-2.5">
+                    <Check className="size-4" />
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
       </SelectPrimitive.Root>
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content
-          position="popper"
-          sideOffset={6}
-          className="z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-card border border-black/5 bg-surface p-1 shadow-pop anim-pop"
-        >
-          <SelectPrimitive.Viewport>
-            {options.map((o) => (
-              <SelectPrimitive.Item
-                key={o.value}
-                value={o.value}
-                className={cn(
-                  'relative flex cursor-pointer select-none items-center rounded-control py-2 pl-3 pr-8 text-sm text-ink',
-                  'data-[highlighted]:bg-surfaceBlue data-[state=checked]:text-primary-dark',
-                  'focus:outline-none',
-                )}
-              >
-                <SelectPrimitive.ItemText>{o.label}</SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="absolute right-2.5">
-                  <Check className="size-4" />
-                </SelectPrimitive.ItemIndicator>
-              </SelectPrimitive.Item>
-            ))}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
       {error && <FieldError message={error} />}
     </span>
   );

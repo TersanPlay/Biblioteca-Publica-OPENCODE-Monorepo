@@ -3,11 +3,13 @@ import { ArrowLeft, Ban, CheckCircle2, FileText, Mail, MapPin, Pencil, Phone, Us
 import { useCallback, useState } from 'react';
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
+import { Select } from '../../../components/ui/select';
 import { Card, CardContent } from '../../../components/ui/card';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { PageSkeleton } from '../../../components/ui/skeleton';
 import { ReservationStatusBadge, LoanStatusBadge, ReaderStatusBadge } from '../../../components/ui/status-badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { TD, TH, THead, TR, Table, TBody } from '../../../components/ui/table';
 import { loansApi, readersApi } from '../../api';
 import { useAsyncData } from '../../hooks/use-async-data';
@@ -203,91 +205,90 @@ export function ReaderDetailsPage() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <div className="border-b border-black/8 p-5 pb-4">
-            <h2 className="text-[15px] font-bold text-ink">Histórico de empréstimos</h2>
-          </div>
-          {data.loans.length === 0 ? (
-            <EmptyState compact title="Nenhum empréstimo ainda" />
-          ) : (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Livro</TH>
-                  <TH>Emprestado em</TH>
-                  <TH>Vencimento</TH>
-                  <TH>Devolução</TH>
-                  <TH>Status</TH>
-                  <TH className="text-right">Documentos</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {data.loans.map((l) => (
-                  <TR key={l.id}>
-                    <TD className="max-w-56 truncate font-semibold text-ink">{l.book?.title}</TD>
-                    <TD className="text-muted">{formatDate(l.loanDate)}</TD>
-                    <TD className="text-muted">{formatDate(l.dueDate)}</TD>
-                    <TD className="text-muted">{l.returnedAt ? formatDate(l.returnedAt) : '—'}</TD>
-                    <TD><LoanStatusBadge status={l.status} /></TD>
-                    <TD className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          title="Termo de Empréstimo"
-                          onClick={() => loansApi.openTerm(l.id)}
-                        >
-                          <FileText className="size-3.5" />
-                        </Button>
-                        {l.returnedAt && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            title="Termo de Devolução"
-                            onClick={() => loansApi.openReturnTerm(l.id)}
-                          >
-                            <FileText className="size-3.5 text-success" />
-                          </Button>
-                        )}
-                      </div>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-0">
-          <div className="border-b border-black/8 p-5 pb-4">
-            <h2 className="text-[15px] font-bold text-ink">Reservas</h2>
-          </div>
-          {data.reservations.length === 0 ? (
-            <EmptyState compact title="Nenhuma reserva" />
-          ) : (
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Livro</TH>
-                  <TH>Solicitada em</TH>
-                  <TH>Expira em</TH>
-                  <TH>Status</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {data.reservations.map((r) => (
-                  <TR key={r.id}>
-                    <TD className="max-w-56 truncate font-semibold text-ink">{r.book?.title}</TD>
-                    <TD className="text-muted">{formatDate(r.createdAt)}</TD>
-                    <TD className="text-muted">{r.expiresAt ? formatDate(r.expiresAt) : '—'}</TD>
-                    <TD><ReservationStatusBadge status={r.status} /></TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
+        <CardContent className="p-5">
+          <Tabs defaultValue="loans">
+            <TabsList>
+              <TabsTrigger value="loans">Histórico de empréstimos ({data.loans.length})</TabsTrigger>
+              <TabsTrigger value="reservations">Reservas ({data.reservations.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="loans">
+              {data.loans.length === 0 ? (
+                <EmptyState compact title="Nenhum empréstimo ainda" />
+              ) : (
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Livro</TH>
+                      <TH>Emprestado em</TH>
+                      <TH>Vencimento</TH>
+                      <TH>Devolução</TH>
+                      <TH>Status</TH>
+                      <TH className="text-right">Documentos</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {data.loans.map((l) => (
+                      <TR key={l.id}>
+                        <TD className="max-w-56 truncate font-semibold text-ink">{l.book?.title}</TD>
+                        <TD className="text-muted">{formatDate(l.loanDate)}</TD>
+                        <TD className="text-muted">{formatDate(l.dueDate)}</TD>
+                        <TD className="text-muted">{l.returnedAt ? formatDate(l.returnedAt) : '—'}</TD>
+                        <TD><LoanStatusBadge status={l.status} /></TD>
+                        <TD className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              title="Termo de Empréstimo"
+                              onClick={() => loansApi.openTerm(l.id)}
+                            >
+                              <FileText className="size-3.5" />
+                            </Button>
+                            {l.returnedAt && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                title="Termo de Devolução"
+                                onClick={() => loansApi.openReturnTerm(l.id)}
+                              >
+                                <FileText className="size-3.5 text-success" />
+                              </Button>
+                            )}
+                          </div>
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              )}
+            </TabsContent>
+            <TabsContent value="reservations">
+              {data.reservations.length === 0 ? (
+                <EmptyState compact title="Nenhuma reserva" />
+              ) : (
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Livro</TH>
+                      <TH>Solicitada em</TH>
+                      <TH>Expira em</TH>
+                      <TH>Status</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {data.reservations.map((r) => (
+                      <TR key={r.id}>
+                        <TD className="max-w-56 truncate font-semibold text-ink">{r.book?.title}</TD>
+                        <TD className="text-muted">{formatDate(r.createdAt)}</TD>
+                        <TD className="text-muted">{r.expiresAt ? formatDate(r.expiresAt) : '—'}</TD>
+                        <TD><ReservationStatusBadge status={r.status} /></TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -366,16 +367,16 @@ export function ReaderDetailsPage() {
           <div className="space-y-3 py-2">
             <div>
               <label className="mb-1 block text-[12px] font-bold text-muted">Motivo</label>
-              <select
+              <Select
                 value={blockCategory}
-                onChange={(e) => setBlockCategory(e.target.value)}
-                className="h-9 w-full rounded-control bg-surface px-3 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)]"
-              >
-                <option value="ATRASO_REPETIDO">Atraso repetido</option>
-                <option value="COMPORTAMENTO">Comportamento inadequado</option>
-                <option value="SOLICITACAO">Solicitação administrativa</option>
-                <option value="OUTRO">Outro</option>
-              </select>
+                onValueChange={setBlockCategory}
+                options={[
+                  { value: 'ATRASO_REPETIDO', label: 'Atraso repetido' },
+                  { value: 'COMPORTAMENTO', label: 'Comportamento inadequado' },
+                  { value: 'SOLICITACAO', label: 'Solicitação administrativa' },
+                  { value: 'OUTRO', label: 'Outro' },
+                ]}
+              />
             </div>
             <div>
               <label className="mb-1 block text-[12px] font-bold text-muted">Detalhes (opcional)</label>

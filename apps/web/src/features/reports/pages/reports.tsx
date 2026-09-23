@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { Label } from '../../../components/ui/form-field';
-import { NativeSelect } from '../../../components/ui/select';
+import { Select } from '../../../components/ui/select';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { TD, TH, TBody, THead, TR, Table } from '../../../components/ui/table';
 import { reportsApi } from '../../api';
@@ -92,9 +92,9 @@ export function ReportsPage() {
         <CardContent className="flex flex-wrap items-end gap-3">
           <div className="min-w-56 flex-1">
             <Label>Modelo</Label>
-            <NativeSelect
+            <Select
               value={type}
-              onChange={(v) => setType(v as ReportType)}
+              onValueChange={(v) => setType(v as ReportType)}
               options={REPORT_TYPES.map((r) => ({ value: r.value, label: r.label }))}
             />
             <p className="mt-1.5 text-[12px] text-muted">
@@ -104,9 +104,9 @@ export function ReportsPage() {
           {needsPeriod && (
             <div className="w-36">
               <Label>Período</Label>
-              <NativeSelect
+              <Select
                 value={period}
-                onChange={(v) => setPeriod(v as '7d' | '30d' | '90d')}
+                onValueChange={(v) => setPeriod(v as '7d' | '30d' | '90d')}
                 options={Object.entries(WEEKS).map(([v, w]) => ({ value: v, label: w.label }))}
               />
             </div>

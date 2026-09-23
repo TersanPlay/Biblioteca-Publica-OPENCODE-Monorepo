@@ -1,16 +1,15 @@
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CatalogBookCard } from '../../components/layout/catalog-book-card';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { EmptyState } from '../../components/ui/empty-state';
 import { Pagination } from '../../components/ui/pagination';
-import { NativeSelect } from '../../components/ui/select';
+import { Select } from '../../components/ui/select';
 import { Skeleton } from '../../components/ui/skeleton';
 import { booksApi, categoriesApi } from '../../features/api';
 import { useDebounce } from '../../features/hooks/use-debounce';
-import { cn } from '../../lib/utils';
 import type { Book, Category, Paginated } from '../../types/api';
 
 const SORTS = [
@@ -116,82 +115,37 @@ export function CatalogPage() {
       </section>
 
       <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-6">
-        <div className="rounded-shell bg-white/[0.48] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.78),0_0_0_1px_var(--hairline),0_18px_40px_-28px_rgba(23,26,26,.24)]">
-          <div className="relative flex h-12 items-center rounded-core bg-surface shadow-[inset_0_0_0_1px_var(--hairline)]">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Buscar por título, autor, ISBN..."
-              className="h-full w-full bg-transparent pl-10 pr-10 text-sm text-ink outline-none placeholder:text-muted/60"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex-1 rounded-shell bg-white/[0.48] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.78),0_0_0_1px_var(--hairline),0_18px_40px_-28px_rgba(23,26,26,.24)]">
+            <div className="relative flex h-12 items-center rounded-core bg-surface shadow-[inset_0_0_0_1px_var(--hairline)]">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Buscar por título, autor, ISBN..."
+                className="h-full w-full bg-transparent pl-10 pr-10 text-sm text-ink outline-none placeholder:text-muted/60"
+              />
+              {input && (
+                <button
+                  onClick={() => setInput('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted transition-colors hover:bg-canvas hover:text-ink"
+                  aria-label="Limpar busca"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="w-full shrink-0 sm:w-44">
+            <Select
+              value={sort}
+              onValueChange={setSort}
+              options={SORTS}
             />
-            {input && (
-              <button
-                onClick={() => setInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted transition-colors hover:bg-canvas hover:text-ink"
-                aria-label="Limpar busca"
-              >
-                <X className="size-4" />
-              </button>
-            )}
           </div>
         </div>
 
-        <div className="mt-6 grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-shell bg-white/[0.48] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.78),0_0_0_1px_var(--hairline),0_24px_48px_-32px_rgba(23,26,26,.24)]">
-              <div className="rounded-core bg-surface p-4 shadow-[inset_0_0_0_1px_var(--hairline)] lg:p-5">
-                <p className="mb-3 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.12em] text-muted">
-                  <SlidersHorizontal className="size-3.5" />
-                  Filtros
-                </p>
-                <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0">
-                  <button
-                    onClick={() => setCategory('')}
-                    className={cn(
-                      'shrink-0 rounded-core px-3.5 py-2 text-left text-[13px] font-semibold transition-all duration-200 [transition-timing-function:var(--ease)] lg:flex lg:items-center lg:justify-between lg:gap-2',
-                      !category
-                        ? 'bg-primary text-white shadow-card'
-                        : 'text-muted hover:bg-canvas hover:text-ink',
-                    )}
-                  >
-                    Todas as categorias
-                    <span
-                      className={cn(
-                        'hidden text-[11.5px] font-bold tabular-nums lg:inline',
-                        !category ? 'text-white/80' : 'text-muted/70',
-                      )}
-                    >
-                      {categories.reduce((sum, c) => sum + (c._count?.books ?? 0), 0)}
-                    </span>
-                  </button>
-                  {categories.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setCategory(String(c.id))}
-                      className={cn(
-                        'shrink-0 rounded-core px-3.5 py-2 text-left text-[13px] font-semibold transition-all duration-200 [transition-timing-function:var(--ease)] lg:flex lg:items-center lg:justify-between lg:gap-2',
-                        category === String(c.id)
-                          ? 'bg-primary text-white shadow-card'
-                          : 'text-muted hover:bg-canvas hover:text-ink',
-                      )}
-                    >
-                      {c.name}
-                      <span
-                        className={cn(
-                          'hidden text-[11.5px] font-bold tabular-nums lg:inline',
-                          category === String(c.id) ? 'text-white/80' : 'text-muted/70',
-                        )}
-                      >
-                        {c._count?.books ?? 0}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </aside>
-
+        <div className="mt-6">
           <div>
             {hasFilters && (
               <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -260,12 +214,6 @@ export function CatalogPage() {
                     <p className="text-[13px] font-semibold text-muted">
                       {data.total} {data.total === 1 ? 'livro' : 'livros'}
                     </p>
-                    <NativeSelect
-                      value={sort}
-                      onChange={setSort}
-                      options={SORTS}
-                      className="w-44"
-                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                     {data.items.map((b) => (

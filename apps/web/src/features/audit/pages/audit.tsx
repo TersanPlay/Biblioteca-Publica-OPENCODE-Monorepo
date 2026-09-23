@@ -5,7 +5,7 @@ import { Card } from '../../../components/ui/card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { PageHeader } from '../../../components/ui/page-header';
 import { Pagination } from '../../../components/ui/pagination';
-import { NativeSelect } from '../../../components/ui/select';
+import { Select } from '../../../components/ui/select';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { TD, TH, TBody, THead, TR, Table } from '../../../components/ui/table';
 import { auditApi } from '../../api';
@@ -44,7 +44,9 @@ export function AuditPage() {
       </p>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <NativeSelect value={action} onChange={setAction} options={ACTIONS_OPTIONS} className="lg:w-48" />
+        <div className="w-full shrink-0 lg:w-48">
+          <Select value={action} onValueChange={setAction} options={ACTIONS_OPTIONS} />
+        </div>
       </div>
 
       {error ? (

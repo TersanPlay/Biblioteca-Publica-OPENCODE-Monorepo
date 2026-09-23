@@ -10,7 +10,7 @@ import { EmptyState } from '../../../components/ui/empty-state';
 import { PageHeader } from '../../../components/ui/page-header';
 import { Pagination } from '../../../components/ui/pagination';
 import { Skeleton } from '../../../components/ui/skeleton';
-import { NativeSelect } from '../../../components/ui/select';
+import { Select } from '../../../components/ui/select';
 import { TD, TH, TBody, THead, TR, Table } from '../../../components/ui/table';
 import { booksApi, categoriesApi } from '../../api';
 import { useDebounce } from '../../hooks/use-debounce';
@@ -92,22 +92,24 @@ export function BooksPage() {
             className="h-10 w-full rounded-control bg-surface pl-10 pr-3 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
           />
         </div>
-        <NativeSelect
-          value={category || 'all'}
-          onChange={(v) => syncParam('category', v === 'all' ? '' : v)}
-          options={[{ value: 'all', label: 'Todas as categorias' }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]}
-          className="lg:w-52"
-        />
-        <NativeSelect
-          value={status}
-          onChange={(v) => syncParam('status', v === 'all' ? '' : v)}
-          options={[
-            { value: 'all', label: 'Ativos e arquivados' },
-            { value: 'active', label: 'Somente ativos' },
-            { value: 'archived', label: 'Somente arquivados' },
-          ]}
-          className="lg:w-48"
-        />
+        <div className="w-full shrink-0 lg:w-52">
+          <Select
+            value={category || 'all'}
+            onValueChange={(v) => syncParam('category', v === 'all' ? '' : v)}
+            options={[{ value: 'all', label: 'Todas as categorias' }, ...categories.map((c) => ({ value: String(c.id), label: c.name }))]}
+          />
+        </div>
+        <div className="w-full shrink-0 lg:w-48">
+          <Select
+            value={status}
+            onValueChange={(v) => syncParam('status', v === 'all' ? '' : v)}
+            options={[
+              { value: 'all', label: 'Ativos e arquivados' },
+              { value: 'active', label: 'Somente ativos' },
+              { value: 'archived', label: 'Somente arquivados' },
+            ]}
+          />
+        </div>
       </div>
 
       {error ? (

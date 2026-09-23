@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { PageHeader } from '../../../components/ui/page-header';
 import { Pagination } from '../../../components/ui/pagination';
-import { NativeSelect } from '../../../components/ui/select';
+import { Select } from '../../../components/ui/select';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { ReaderStatusBadge } from '../../../components/ui/status-badge';
 import { TD, TH, TBody, THead, TR, Table } from '../../../components/ui/table';
@@ -64,18 +64,19 @@ export function ReadersPage() {
             className="h-10 w-full rounded-control bg-surface pl-10 pr-3 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
           />
         </div>
-        <NativeSelect
-          value={status}
-          onChange={(v) => {
-            const next = new URLSearchParams(params);
-            if (v === 'all') next.delete('status');
-            else next.set('status', v);
-            next.delete('page');
-            setParams(next);
-          }}
-          options={STATUS_OPTIONS}
-          className="lg:w-44"
-        />
+        <div className="w-full shrink-0 lg:w-44">
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              const next = new URLSearchParams(params);
+              if (v === 'all') next.delete('status');
+              else next.set('status', v);
+              next.delete('page');
+              setParams(next);
+            }}
+            options={STATUS_OPTIONS}
+          />
+        </div>
       </div>
 
       {error ? (
