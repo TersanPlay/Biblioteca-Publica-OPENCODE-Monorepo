@@ -43,6 +43,26 @@ async function assertBookEligible(
   return { id: book.id, title: book.title };
 }
 
+// Assinatura da operação: nova desenho atualiza a salva do leitor;
+// useSavedSignature reaproveita a salva (erro se não houver).
+async function resolveLoanSignature(
+  tx: Prisma.TransactionClient,
+  readerId: number,
+  data: { signature?: string | null; useSavedSignature?: boolean },
+): Promise<string | null> {
+  const drawn = data.signature ? data.signature : null;
+  if (drawn) {
+    await tx.reader.update({ where: { id: readerId }, data: { signature: drawn, signatureUpdatedAt: new Date() } });
+    return drawn;
+  }
+  if (data.useSavedSignature) {
+    const r = await tx.reader.findUnique({ where: { id: readerId } });
+    if (!r?.signature) throw new HttpError(400, 'Leitor não possui assinatura salva; assine no pad');
+    return r.signature;
+  }
+  return null;
+}
+
 async function buildLoanSnapshots(
   tx: Prisma.TransactionClient,
   readerId: number,
@@ -178,9 +198,19 @@ loanRouter.post(
       if (dueDate.getTime() <= loanDate.getTime()) throw new HttpError(400, 'Prazo de devolução deve ser futuro');
 
       const snapshots = await buildLoanSnapshots(tx, reader.id, data.bookId, userId);
+      const sig = await resolveLoanSignature(tx, reader.id, data);
 
       const created = await tx.loan.create({
-        data: { readerId: reader.id, bookId: data.bookId, userId, dueDate, status: 'ACTIVE', ...snapshots },
+        data: {
+          readerId: reader.id,
+          bookId: data.bookId,
+          userId,
+          dueDate,
+          status: 'ACTIVE',
+          ...snapshots,
+          loanSignature: sig,
+          loanSignedAt: sig ? loanDate : null,
+        },
       });
       const number = await ensureNumber(created.id, tx);
       return { loan: created, number };
@@ -233,11 +263,21 @@ loanRouter.post(
       }
 
       const loans: { id: number; number: string; bookId: number }[] = [];
+      const batchSig = await resolveLoanSignature(tx, reader.id, data);
       for (const bookId of bookIds) {
         await assertBookEligible(tx, bookId, reader.id);
         const snapshots = await buildLoanSnapshots(tx, reader.id, bookId, userId);
         const createdLoan = await tx.loan.create({
-          data: { readerId: reader.id, bookId, userId, dueDate, status: 'ACTIVE', ...snapshots },
+          data: {
+            readerId: reader.id,
+            bookId,
+            userId,
+            dueDate,
+            status: 'ACTIVE',
+            ...snapshots,
+            loanSignature: batchSig,
+            loanSignedAt: batchSig ? loanDate : null,
+          },
         });
         const number = await ensureNumber(createdLoan.id, tx);
         loans.push({ id: createdLoan.id, number, bookId });
@@ -279,6 +319,18 @@ loanRouter.post(
     if (!loan) throw new HttpError(404, 'Empréstimo não encontrado');
     if (loan.returnedAt) throw new HttpError(400, 'Empréstimo já devolvido');
 
+    let sig: string | null = data.signature ? data.signature : null;
+    if (sig) {
+      await prisma.reader.update({
+        where: { id: loan.readerId },
+        data: { signature: sig, signatureUpdatedAt: new Date() },
+      });
+    } else if (data.useSavedSignature) {
+      const r = await prisma.reader.findUnique({ where: { id: loan.readerId } });
+      if (!r?.signature) throw new HttpError(400, 'Leitor não possui assinatura salva; assine no pad');
+      sig = r.signature;
+    }
+
     const returned = await prisma.loan.update({
       where: { id },
       data: {
@@ -287,6 +339,8 @@ loanRouter.post(
         returnCondition: data.condition ?? null,
         returnObservations: data.observations ?? null,
         receivedByNameSnapshot: req.user!.name,
+        returnSignature: sig,
+        returnSignedAt: sig ? new Date() : null,
       },
     });
 

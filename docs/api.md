@@ -120,6 +120,7 @@ Query de `GET /books`: `search` (título, subtítulo, ISBN, editora, autor), `ca
 | GET | `/api/readers/:id` | ✅ | Detalhe + empréstimos (últimos 50) + reservas (últimas 20) + `activeLoans` + `overdueCount` |
 | PUT | `/api/readers/:id` | ✅ | Atualiza campos parciais |
 | PATCH | `/api/readers/:id/status` | ✅ | `{ status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED', reason?, category? }` |
+| PATCH | `/api/readers/:id/signature` | ✅ | Salva/atualiza assinatura do leitor: `{ signature }` (data-URL PNG, obrigatória) |
 | DELETE | `/api/readers/:id` | ADMIN | Exclui leitor (anonimização LGPD): bloqueia se tiver empréstimos ativos, cancela reservas pendentes, substitui dados pessoais por valores genéricos. Corpo: `{ reason? }` |
 
 Corpo de criação: `{ name, cpf, birthDate?, phone?, email?, cep?, address?, number?, neighborhood?, city?, state? }` (UF com 2 letras).
@@ -138,20 +139,25 @@ Corpo de criação: `{ name, cpf, birthDate?, phone?, email?, cep?, address?, nu
 | GET | `/api/loans/:id/term` | PDF do Termo de Empréstimo (autenticado via blob) |
 | GET | `/api/loans/:id/return-term` | PDF do Termo de Devolução (autenticado via blob) |
 
-`POST /loans` — corpo: `{ readerId, bookId, dueDate? }`. `POST /loans/batch` — corpo:
+`POST /loans` — corpo: `{ readerId, bookId, dueDate?, signature? }`. `POST /loans/batch` — corpo:
 
 ```json
-{ "readerId": 7, "bookIds": [12, 34], "dueDate": "2026-09-01" }
+{ "readerId": 7, "bookIds": [12, 34], "dueDate": "2026-09-01", "signature": "data:image/png;base64,..." }
 ```
+
+- `signature`: data-URL PNG da assinatura do leitor capturada no pad (opcional no backend, obrigatória na UI; no lote, a mesma assinatura vale para todos os empréstimos). Salva em `loanSignature`/`loanSignedAt` e é incorporada ao Termo de Empréstimo. Desenhar nova assinatura atualiza a salva do leitor.
+- `useSavedSignature`: `true` para reaproveitar a assinatura salva do leitor sem redesenhar (`400` se ele não tiver salva).
 
 `POST /loans/:id/return` — corpo (opcional):
 
 ```json
-{ "condition": "BOM", "observations": "Material sem avarias" }
+{ "condition": "BOM", "observations": "Material sem avarias", "signature": "data:image/png;base64,..." }
 ```
 
 - `condition`: `BOM`, `REGULAR` ou `DANIFICADO`
 - `observations`: texto livre (até 500 caracteres)
+- `signature`: data-URL PNG da assinatura do leitor (opcional no backend, obrigatória na UI). Salva em `returnSignature`/`returnSignedAt` e é incorporada ao Termo de Devolução. Desenhar nova assinatura atualiza a salva do leitor.
+- `useSavedSignature`: `true` para reaproveitar a assinatura salva (`400` se não houver).
 
 Regras comuns (falha → `400` sem criar nada):
 - Leitor deve existir e estar `ACTIVE`.
@@ -168,7 +174,7 @@ Respostas: `201` com o(s) empréstimo(s) completos (com `number` no formato `EMP
 
 Rotas `GET /loans/:id/term` e `GET /loans/:id/return-term` geram PDFs com `pdfkit`. Requerem autenticação (`Authorization: Bearer <token>`). Frontend busca como blob e abre em nova aba.
 
-O Termo de Empréstimo contém: dados do empréstimo, leitor (snapshots), material bibliográfico, registro do atendimento e assinaturas. O Termo de Devolução contém: situação (prazo/atraso), condição do material, dados do empréstimo original, leitor, material, registro da devolução, responsável e assinaturas.
+O Termo de Empréstimo contém: dados do empréstimo, leitor (snapshots), material bibliográfico, registro do atendimento e assinaturas. O Termo de Devolução contém: situação (prazo/atraso), condição do material, dados do empréstimo original, leitor, material, registro da devolução, responsável e assinaturas. Quando há assinatura digital salva (`loanSignature`/`returnSignature`), a imagem é incorporada na seção de assinaturas com data/hora; sem ela, mantêm-se as linhas manuais.
 
 ## Reservations — autenticação
 

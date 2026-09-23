@@ -86,6 +86,15 @@ export const dateStrOpt = strOpt.refine(
   'Data inválida',
 );
 
+// Assinatura manuscrita capturada no pad (PNG data-URL). Opcional no backend
+// para não quebrar clientes antigos; obrigatório na UI de empréstimo/devolução.
+export const signatureDataUrl = z
+  .string()
+  .trim()
+  .max(700000, 'Assinatura muito grande')
+  .refine((v) => v === '' || /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(v), 'Assinatura inválida')
+  .nullish();
+
 export const isbn10Opt = strOpt.refine(
   (v) => v == null || v === '' || isValidIsbn10(v),
   'Informe um ISBN-10 válido.',
@@ -170,17 +179,32 @@ export const loanCreateSchema = z.object({
   readerId: z.number().int(),
   bookId: z.number().int(),
   dueDate: dateStrOpt,
+  signature: signatureDataUrl,
+  useSavedSignature: z.boolean().optional(),
 });
 
 export const loanBatchCreateSchema = z.object({
   readerId: z.number().int(),
   bookIds: z.array(z.number().int()).min(1, 'Selecione ao menos um livro').max(20, 'Máximo de 20 livros por pedido'),
   dueDate: dateStrOpt,
+  signature: signatureDataUrl,
+  useSavedSignature: z.boolean().optional(),
 });
 
 export const loanReturnSchema = z.object({
   condition: z.enum(['BOM', 'REGULAR', 'DANIFICADO']).optional(),
   observations: z.string().trim().max(500).optional(),
+  signature: signatureDataUrl,
+  useSavedSignature: z.boolean().optional(),
+});
+
+export const readerSignatureSchema = z.object({
+  signature: z
+    .string()
+    .trim()
+    .min(1, 'Assinatura obrigatória')
+    .max(700000, 'Assinatura muito grande')
+    .refine((v) => /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(v), 'Assinatura inválida'),
 });
 
 export const reservationCreateSchema = z.object({

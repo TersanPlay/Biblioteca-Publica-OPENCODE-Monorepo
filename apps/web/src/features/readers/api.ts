@@ -21,4 +21,6 @@ export const readersApi = {
     api.delete<{ ok: boolean }>(`/readers/${id}`, { data: { reason } }).then((r) => r.data),
   blocked: (params?: Params) =>
     api.get<Paginated<BlockedReader>>('/readers/blocked', { params }).then((r) => r.data),
+  setSignature: (id: number, signature: string) =>
+    api.patch<Reader>(`/readers/${id}/signature`, { signature }).then((r) => r.data),
 };

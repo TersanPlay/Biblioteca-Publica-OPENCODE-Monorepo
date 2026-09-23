@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { Search, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog';
@@ -9,8 +9,10 @@ import { PageHeader } from '../../../components/ui/page-header';
 import { Pagination } from '../../../components/ui/pagination';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { LoanStatusBadge } from '../../../components/ui/status-badge';
+import { Select } from '../../../components/ui/select';
 import { TD, TH, TBody, THead, TR, Table } from '../../../components/ui/table';
 import { loansApi } from '../../api';
+import { SignatureField, type SignatureFieldHandle } from '../components/signature-field';
 import { useAsyncData } from '../../hooks/use-async-data';
 import { useDebounce } from '../../hooks/use-debounce';
 import { useApiToast } from '../../toast/toast-provider';
@@ -28,7 +30,25 @@ export function ReturnsPage() {
   const [returnCondition, setReturnCondition] = useState<string>('');
   const [returnObservations, setReturnObservations] = useState('');
   const [busy, setBusy] = useState(false);
+  const returnSigFieldRef = useRef<SignatureFieldHandle>(null);
+  const [returnSigValid, setReturnSigValid] = useState(false);
   const { toast } = useApiToast();
+
+  const resetReturnForm = () => {
+    setReturning(null);
+    setReturnCondition('');
+    setReturnObservations('');
+    returnSigFieldRef.current?.reset();
+    setReturnSigValid(false);
+  };
+
+  useEffect(() => {
+    if (returning) {
+      setReturnCondition('');
+      setReturnObservations('');
+      returnSigFieldRef.current?.reset();
+    }
+  }, [returning?.id]);
 
   const fetcher = () =>
     loansApi.list({ search: debounced || undefined, status: 'active', page, pageSize: 12 });
@@ -36,16 +56,17 @@ export function ReturnsPage() {
 
   const confirmReturn = async () => {
     if (!returning) return;
+    const sig = returnSigFieldRef.current?.resolve();
+    if (!sig) return;
     setBusy(true);
     try {
       await loansApi.return(returning.id, {
         condition: returnCondition || undefined,
         observations: returnObservations || undefined,
+        ...sig,
       });
       toast.success('Devolução registrada', `${returning.book?.title} devolvido`);
-      setReturning(null);
-      setReturnCondition('');
-      setReturnObservations('');
+      resetReturnForm();
       refetch();
     } catch (err) {
       toast.error('Não foi possível registrar', apiErrorMessage(err));
@@ -133,7 +154,9 @@ export function ReturnsPage() {
                         </TD>
                         <TD><LoanStatusBadge status={l.status} /></TD>
                         <TD className="text-right">
-                          <Button size="sm" onClick={() => setReturning(l)}>
+                          <Button size="sm" onClick={() => {
+                            setReturning(l);
+                          }}>
                             <Undo2 className="size-3.5" /> Receber devolução
                           </Button>
                         </TD>
@@ -160,11 +183,7 @@ export function ReturnsPage() {
       <ConfirmDialog
         open={!!returning}
         onOpenChange={(o) => {
-          if (!o) {
-            setReturning(null);
-            setReturnCondition('');
-            setReturnObservations('');
-          }
+          if (!o) resetReturnForm();
         }}
         title="Registrar devolução"
         description={
@@ -174,21 +193,36 @@ export function ReturnsPage() {
         }
         confirmLabel="Receber devolução"
         loading={busy}
+        confirmDisabled={!returnSigValid}
         onConfirm={confirmReturn}
       >
         <div className="space-y-3">
+          {returning && (
+            <div className="rounded-card bg-surfaceBlue2 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                Pré-visualização do Termo de Devolução
+              </p>
+              <div className="mt-2 grid gap-2 text-[13px] text-ink sm:grid-cols-2">
+                <p><span className="text-muted">Empréstimo: </span><span className="font-mono">{returning.number ?? `#${returning.id}`}</span></p>
+                <p><span className="text-muted">Situação: </span><span className="font-semibold">{returning.status === 'OVERDUE' ? 'Devolvido com atraso' : 'Devolvido no prazo'}</span></p>
+                <p><span className="text-muted">Saída: </span>{formatDate(returning.loanDate)}</p>
+                <p><span className="text-muted">Vencimento: </span>{formatDate(returning.dueDate)}</p>
+                <p><span className="text-muted">Devolução: </span>{new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-ink/70">Condição do livro</label>
-            <select
-              value={returnCondition}
-              onChange={(e) => setReturnCondition(e.target.value)}
-              className="h-9 w-full rounded-control bg-surface px-2 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
-            >
-              <option value="">Não informado</option>
-              <option value="BOM">Bom estado</option>
-              <option value="REGULAR">Regular</option>
-              <option value="DANIFICADO">Danificado</option>
-            </select>
+            <Select
+              value={returnCondition || 'NONE'}
+              onValueChange={(v) => setReturnCondition(v === 'NONE' ? '' : v)}
+              options={[
+                { value: 'NONE', label: 'Não informado' },
+                { value: 'BOM', label: 'Bom estado' },
+                { value: 'REGULAR', label: 'Regular' },
+                { value: 'DANIFICADO', label: 'Danificado' },
+              ]}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-ink/70">Observações</label>
@@ -201,6 +235,11 @@ export function ReturnsPage() {
               className="w-full rounded-control bg-surface px-2 py-1.5 text-sm text-ink shadow-[inset_0_0_0_1px_rgba(23,26,26,.1)] focus:outline-none focus:shadow-[inset_0_0_0_2px_#087F8C]"
             />
           </div>
+          <SignatureField
+            ref={returnSigFieldRef}
+            savedSignature={returning?.reader?.signature}
+            onValidityChange={setReturnSigValid}
+          />
         </div>
       </ConfirmDialog>
     </div>

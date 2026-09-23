@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,6 +15,7 @@ import { TD, TBody, TR, Table } from '../../../components/ui/table';
 import { BookCover } from '../../../components/layout/book-cover';
 import { Badge } from '../../../components/ui/badge';
 import { booksApi, loansApi, readersApi, settingsApi } from '../../api';
+import { SignatureField, type SignatureFieldHandle } from '../components/signature-field';
 import { useDebounce } from '../../hooks/use-debounce';
 import { useApiToast } from '../../toast/toast-provider';
 import { apiErrorMessage } from '../../../lib/errors';
@@ -45,11 +46,14 @@ export function NewLoanPage() {
   const readerDebounced = useDebounce(readerQuery, 400);
   const bookDebounced = useDebounce(bookQuery, 400);
   const [busy, setBusy] = useState(false);
+  const sigFieldRef = useRef<SignatureFieldHandle>(null);
+  const [sigValid, setSigValid] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { dueDate: addDaysInput(14), notes: '' },
   });
+  const dueDatePreview = watch('dueDate');
 
   const searchReaders = async (q: string) => {
     if (!q.trim()) {
@@ -106,6 +110,8 @@ export function NewLoanPage() {
 
   const submit = async (v: { dueDate: string; notes: string }) => {
     if (!reader || books.length === 0) return;
+    const sig = sigFieldRef.current?.resolve();
+    if (!sig) return;
     setBusy(true);
     try {
       const res = await loansApi.createBatch({
@@ -113,6 +119,7 @@ export function NewLoanPage() {
         bookIds: books.map((b) => b.id),
         dueDate: v.dueDate || undefined,
         notes: v.notes || undefined,
+        ...sig,
       });
       toast.success(
         res.count > 1 ? `${res.count} empréstimos registrados` : 'Empréstimo registrado',
@@ -132,7 +139,14 @@ export function NewLoanPage() {
     setBooks([]);
     setReaderQuery('');
     setBookQuery('');
+    sigFieldRef.current?.reset();
+    setSigValid(false);
     reset({ dueDate: addDaysInput(14), notes: '' });
+  };
+
+  const formatPreviewDate = (iso: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
   };
 
   return (
@@ -335,26 +349,46 @@ export function NewLoanPage() {
       {step === 3 && reader && books.length > 0 && (
         <Card>
           <CardContent className="p-5">
-            <div className="mb-5 grid gap-3 rounded-card bg-surfaceBlue2 p-4 sm:grid-cols-3">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Leitor</p>
-                <p className="text-[13.5px] font-bold text-ink">{reader.name}</p>
+            <div className="mb-5 rounded-card bg-surfaceBlue2 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                Pré-visualização do Termo de Empréstimo
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Leitor</p>
+                  <p className="text-[13.5px] font-bold text-ink">{reader.name}</p>
+                  <p className="font-mono text-[12px] text-muted">LTR-{String(reader.id).padStart(6, '0')}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Prazos</p>
+                  <p className="text-[13px] text-ink">Empréstimo: {new Date().toLocaleDateString('pt-BR')}</p>
+                  <p className="text-[13px] text-ink">Devolução prevista: {formatPreviewDate(dueDatePreview)}</p>
+                </div>
               </div>
-              <div className="sm:col-span-2">
+              <div className="mt-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
-                  Livros ({books.length})
+                  Material bibliográfico ({books.length})
                 </p>
-                <ul className="mt-1 space-y-1">
+                <ul className="mt-1 space-y-1.5">
                   {books.map((b) => (
                     <li key={b.id} className="flex items-center gap-2">
                       <BookOpen className="size-3.5 shrink-0 text-primary" />
-                      <span className="line-clamp-1 text-[13px] font-semibold text-ink">{b.title}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-1 block text-[13px] font-semibold text-ink">{b.title}</span>
+                        <span className="block text-[12px] text-muted">
+                          {b.authors.map((a) => a.author.name).join(', ')}
+                          {(b.isbn13 || b.isbn10) && ` — ISBN ${b.isbn13 || b.isbn10}`}
+                        </span>
+                      </span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
                         className="ml-auto shrink-0 text-muted hover:text-destructive"
-                        onClick={() => { setBooks((prev) => prev.filter((x) => x.id !== b.id)); }}
+                        onClick={() => {
+                          setBooks((prev) => prev.filter((x) => x.id !== b.id));
+                          sigFieldRef.current?.reset();
+                        }}
                       >
                         <X className="size-3.5" />
                       </Button>
@@ -362,6 +396,10 @@ export function NewLoanPage() {
                   ))}
                 </ul>
               </div>
+              <p className="mt-3 text-[12px] italic text-muted">
+                Declaro que o material acima foi recebido pelo leitor na data indicada,
+                comprometendo-se à devolução no prazo estabelecido.
+              </p>
             </div>
 
             <form onSubmit={handleSubmit(submit)} className="space-y-4">
@@ -373,13 +411,21 @@ export function NewLoanPage() {
                 <Label>Observações</Label>
                 <Input placeholder="Opcional..." {...register('notes')} />
               </div>
+              <SignatureField
+                ref={sigFieldRef}
+                savedSignature={reader.signature}
+                onValidityChange={setSigValid}
+              />
               <div className="flex items-center justify-between">
-                <Button type="button" variant="ghost" onClick={() => setStep(2)}>
+                <Button type="button" variant="ghost" onClick={() => {
+                  sigFieldRef.current?.reset();
+                  setStep(2);
+                }}>
                   <ArrowLeft className="size-4" /> Voltar
                 </Button>
                 <div className="flex gap-2">
                   <Button type="button" variant="secondary" onClick={resetAll}>Cancelar</Button>
-                  <Button type="submit" loading={busy}>
+                  <Button type="submit" loading={busy} disabled={!sigValid}>
                     <BookOpen className="size-4" /> Confirmar {books.length} {books.length === 1 ? 'empréstimo' : 'empréstimos'}
                   </Button>
                 </div>

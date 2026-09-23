@@ -105,6 +105,8 @@ export interface Reader {
   deletedAt: string | null;
   createdAt: string;
   activeLoans?: number;
+  signature?: string | null;
+  signatureUpdatedAt?: string | null;
 }
 
 export interface BlockedReader extends Reader {
@@ -143,6 +145,10 @@ export interface Loan {
   returnCondition?: string | null;
   returnObservations?: string | null;
   receivedByNameSnapshot?: string | null;
+  loanSignature?: string | null;
+  loanSignedAt?: string | null;
+  returnSignature?: string | null;
+  returnSignedAt?: string | null;
   reader?: Reader;
   book?: Book;
   user?: { id: number; name: string };

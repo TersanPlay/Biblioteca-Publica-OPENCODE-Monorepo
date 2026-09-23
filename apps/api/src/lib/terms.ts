@@ -19,6 +19,10 @@ interface LoanTermData {
   returnCondition: string | null;
   returnObservations: string | null;
   receivedByNameSnapshot: string | null;
+  loanSignature: string | null;
+  loanSignedAt: Date | null;
+  returnSignature: string | null;
+  returnSignedAt: Date | null;
   reader?: { name: string } | null;
   book?: { title: string; isbn10: string | null; isbn13: string | null } | null;
   user?: { name: string } | null;
@@ -73,6 +77,7 @@ function drawBookIcon(doc: typeof PDFDocument, x: number, y: number, size: numbe
 function drawHeader(doc: typeof PDFDocument, s: LibrarySettings): number {
   drawBookIcon(doc, 50, 32, 30);
   doc.fontSize(12).font('Helvetica-Bold').fillColor(C.ink).text(s.libraryName || 'Biblioteca Pública', 88, 35, { width: 320 });
+  doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray).text('Página 1 de 1', 420, 38, { width: 125, align: 'right' }).restore();
   doc.fontSize(7).font('Helvetica').fillColor(C.gray);
   const parts: string[] = [];
   if (s.libraryAddress) parts.push(s.libraryAddress);
@@ -119,8 +124,22 @@ function drawFooter(doc: typeof PDFDocument, code: string, at: Date, num: string
   doc.restore();
 }
 
-function drawPageNum(doc: typeof PDFDocument) {
-  doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray).text('Página 1 de 1', 50, 788, { width: 495, align: 'center' }).restore();
+// Desenha a assinatura digital (PNG data-URL) na caixa (x, y, w, h).
+// Retorna false quando ausente/inválida — o chamador mantém as linhas manuais.
+function drawSignature(doc: typeof PDFDocument, dataUrl: string | null | undefined, x: number, y: number, w: number, h: number): boolean {
+  if (!dataUrl) return false;
+  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl.trim());
+  if (!m) return false;
+  try {
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length === 0 || buf.length > 700000) return false;
+    doc.save();
+    doc.image(buf, x, y, { fit: [w, h] });
+    doc.restore();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function generateLoanTermPDF(loan: LoanTermData, settings: LibrarySettings): typeof PDFDocument {
@@ -183,19 +202,29 @@ export function generateLoanTermPDF(loan: LoanTermData, settings: LibrarySetting
 
   y = section(doc, y, '5. Assinaturas', (doc) => {
     const sy = doc.y + 6;
+    const sigH = 42;
+    if (loan.loanSignature && drawSignature(doc, loan.loanSignature, 60, sy, 200, sigH)) {
+      doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray);
+      doc.text('Assinatura do Leitor (digital)', 60, sy + sigH + 2);
+      doc.text(readerName, 60, doc.y + 8);
+      if (loan.loanSignedAt) doc.text(`Assinado em ${formatDateTime(loan.loanSignedAt)}`, 60, doc.y + 8);
+      doc.restore();
+    } else {
+      doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
+      doc.text('________________________________', 60, sy);
+      doc.fontSize(6.5).fillColor(C.gray).text('Assinatura do Leitor', 60, doc.y + 1);
+      doc.text(readerName, 60, doc.y + 8);
+      doc.restore();
+    }
     doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
-    doc.text('________________________________', 60, sy);
-    doc.fontSize(6.5).fillColor(C.gray).text('Assinatura do Leitor', 60, doc.y + 1);
-    doc.text(readerName, 60, doc.y + 8);
-    doc.fontSize(7.5).fillColor(C.ink).text('________________________________', 300, sy);
-    doc.fontSize(6.5).fillColor(C.gray).text('Responsável pelo atendimento', 300, doc.y - 19);
+    doc.text('________________________________', 300, sy);
+    doc.fontSize(6.5).fillColor(C.gray).text('Responsável pelo atendimento', 300, doc.y + 1);
     doc.text(createdByName, 300, doc.y + 8);
     doc.restore();
-    doc.y = sy + 40;
+    doc.y = Math.max(sy + 40, doc.y + 5);
   });
 
   drawFooter(doc, code, loan.createdAt, num, createdByName);
-  drawPageNum(doc);
   return doc;
 }
 
@@ -298,18 +327,28 @@ export function generateReturnTermPDF(loan: LoanTermData, settings: LibrarySetti
 
   y = section(doc, y, '7. Assinaturas', (doc) => {
     const sy = doc.y + 6;
+    const sigH = 42;
+    if (loan.returnSignature && drawSignature(doc, loan.returnSignature, 60, sy, 200, sigH)) {
+      doc.save().fontSize(6.5).font('Helvetica').fillColor(C.gray);
+      doc.text('Leitor / Responsável (digital)', 60, sy + sigH + 2);
+      doc.text(readerName, 60, doc.y + 8);
+      if (loan.returnSignedAt) doc.text(`Assinado em ${formatDateTime(loan.returnSignedAt)}`, 60, doc.y + 8);
+      doc.restore();
+    } else {
+      doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
+      doc.text('________________________________', 60, sy);
+      doc.fontSize(6.5).fillColor(C.gray).text('Leitor / Responsável', 60, doc.y + 1);
+      doc.text(readerName, 60, doc.y + 8);
+      doc.restore();
+    }
     doc.save().fontSize(7.5).font('Helvetica').fillColor(C.ink);
-    doc.text('________________________________', 60, sy);
-    doc.fontSize(6.5).fillColor(C.gray).text('Leitor / Responsável', 60, doc.y + 1);
-    doc.text(readerName, 60, doc.y + 8);
-    doc.fontSize(7.5).fillColor(C.ink).text('________________________________', 300, sy);
-    doc.fontSize(6.5).fillColor(C.gray).text('Servidor responsável pelo recebimento', 300, doc.y - 19);
+    doc.text('________________________________', 300, sy);
+    doc.fontSize(6.5).fillColor(C.gray).text('Servidor responsável pelo recebimento', 300, doc.y + 1);
     doc.text(receivedByName, 300, doc.y + 8);
     doc.restore();
-    doc.y = sy + 40;
+    doc.y = Math.max(sy + 40, doc.y + 5);
   });
 
   drawFooter(doc, code, loan.returnedAt || new Date(), loanNum, receivedByName);
-  drawPageNum(doc);
   return doc;
 }

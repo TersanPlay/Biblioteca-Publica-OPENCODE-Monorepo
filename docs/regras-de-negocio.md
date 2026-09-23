@@ -43,6 +43,20 @@ No momento da criação do empréstimo, são salvos os dados do leitor, livro e 
 
 Para empréstimos criados antes da implementação dos snapshots, os termos PDF fazem fallback para os dados das relações atuais (reader, book, user).
 
+### Assinatura do leitor
+
+- No Step 3 do novo empréstimo, a UI exibe a pré-visualização do Termo e exige a assinatura do leitor no pad (mouse, touch ou caneta; limpar/refazer liberado). Sem assinatura, a confirmação fica bloqueada.
+- A mesma assinatura vale para todos os livros do lote; é salva em `loanSignature`/`loanSignedAt` de cada empréstimo e incorporada ao Termo de Empréstimo (PDF).
+- Na devolução, o modal exibe a pré-visualização do Termo de Devolução e exige a assinatura; salva em `returnSignature`/`returnSignedAt` e incorporada ao Termo de Devolução.
+- Termos de operações anteriores (sem assinatura salva) continuam válidos, com as linhas manuais.
+
+### Assinatura salva do leitor
+
+- Cada leitor pode ter uma assinatura salva (`signature`/`signatureUpdatedAt`, via `PATCH /readers/:id/signature` ou automaticamente ao desenhar nova em empréstimo/devolução).
+- Com salva existente, o Step 3 e o modal de devolução oferecem escolha explícita: **Usar salva** (miniatura) ou **Assinar novamente** (a nova vira a salva).
+- `useSavedSignature: true` reaproveita sem redesenhar; sem salva, `400` pedindo desenho.
+- Exclusão LGPD apaga a assinatura junto dos dados pessoais.
+
 ### Empréstimo em lote (`POST /loans/batch`)
 
 - 1 a 20 livros por pedido; seleção sem duplicados.

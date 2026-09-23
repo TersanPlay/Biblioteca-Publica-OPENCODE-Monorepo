@@ -4,11 +4,11 @@ import type { Params } from '../http';
 
 export const loansApi = {
   list: (params?: Params) => api.get<Paginated<Loan>>('/loans', { params }).then((r) => r.data),
-  create: (v: { readerId: number; bookId: number; notes?: string; dueDate?: string }) =>
+  create: (v: { readerId: number; bookId: number; notes?: string; dueDate?: string; signature?: string; useSavedSignature?: boolean }) =>
     api.post<Loan>('/loans', v).then((r) => r.data),
-  createBatch: (v: { readerId: number; bookIds: number[]; notes?: string; dueDate?: string }) =>
+  createBatch: (v: { readerId: number; bookIds: number[]; notes?: string; dueDate?: string; signature?: string; useSavedSignature?: boolean }) =>
     api.post<{ items: Loan[]; count: number }>('/loans/batch', v).then((r) => r.data),
-  return: (id: number, data?: { condition?: string; observations?: string }) =>
+  return: (id: number, data?: { condition?: string; observations?: string; signature?: string; useSavedSignature?: boolean }) =>
     api.post<Loan>(`/loans/${id}/return`, data).then((r) => r.data),
   renew: (id: number) => api.post<Loan>(`/loans/${id}/renew`).then((r) => r.data),
   search: (query: string) =>

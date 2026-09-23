@@ -43,6 +43,8 @@ model Reader {
   blockedAt    DateTime?
   blockedBy    Int?
   blockedByUser User?         @relation("BlockedReaders", fields: [blockedBy], references: [id])
+  signature    String?
+  signatureUpdatedAt DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   loans        Loan[]
@@ -140,6 +142,10 @@ model Loan {
   returnCondition        String?
   returnObservations     String?
   receivedByNameSnapshot String?
+  loanSignature          String?
+  loanSignedAt           DateTime?
+  returnSignature        String?
+  returnSignedAt         DateTime?
 
   reader     Reader     @relation(fields: [readerId], references: [id])
   book       Book       @relation(fields: [bookId], references: [id])

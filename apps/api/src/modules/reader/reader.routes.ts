@@ -4,7 +4,7 @@ import { HttpError } from '../../lib/http-error';
 import { asyncHandler } from '../../middleware/async-handler';
 import { requireAuth, requireRoles } from '../../middleware/auth';
 import { writeAudit } from '../../lib/audit';
-import { cleanNull, dateOrNull, parse, paginationSchema, readerDeleteSchema, readerQuerySchema, readerSchema, readerStatusSchema, readerUpdateSchema } from '../../validation';
+import { cleanNull, dateOrNull, parse, paginationSchema, readerDeleteSchema, readerQuerySchema, readerSchema, readerSignatureSchema, readerStatusSchema, readerUpdateSchema } from '../../validation';
 import { refreshOverdue } from '../../lib/overdue';
 
 export const readerRouter = Router();
@@ -229,6 +229,23 @@ readerRouter.patch(
   }),
 );
 
+readerRouter.patch(
+  '/:id/signature',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const data = parse(readerSignatureSchema, req.body);
+    const existing = await prisma.reader.findUnique({ where: { id } });
+    if (!existing) throw new HttpError(404, 'Leitor não encontrado');
+    if (existing.deletedAt) throw new HttpError(409, 'Leitor excluído não pode ter assinatura alterada');
+    const reader = await prisma.reader.update({
+      where: { id },
+      data: { signature: data.signature, signatureUpdatedAt: new Date() },
+    });
+    await writeAudit(req.user?.id, 'READER_UPDATED', 'Reader', id, { signature: true }, req.ip);
+    res.json(reader);
+  }),
+);
+
 readerRouter.delete(
   '/:id',
   requireRoles('ADMIN'),
@@ -271,6 +288,8 @@ readerRouter.delete(
           blockCategory: null,
           blockedAt: null,
           blockedBy: null,
+          signature: null,
+          signatureUpdatedAt: null,
           deletedAt: new Date(),
           anonymizedAt: new Date(),
         },
